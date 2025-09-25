@@ -41,7 +41,8 @@ int main() {
     addr.sin_port = ntohs(8080);
     addr.sin_addr.s_addr = ntohl(INADDR_LOOPBACK); // loopback address 127.0.0.1
 
-    // bind
+    // bind, in `connect` the automatically bind the socket to the address
+    // if port or addr not given, the automatically available port and addr would be used to bind the socket to the address
     int rv = connect (fd, (const struct sockaddr *)&addr, sizeof(addr));
     if (rv < 0) { die("connect()"); }
     msg("[client] connected to 127.0.0.1:8080");
