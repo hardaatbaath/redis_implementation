@@ -20,27 +20,27 @@ CLIENT_OBJS := $(BUILD_DIR)/client.o $(BUILD_DIR)/utils.o
 .PHONY: all
 all: $(BIN_DIR)/server $(BIN_DIR)/client
 
-# Build rules
+# Build rules, run when make is called
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR) # compiles any .cpp file from src/ to .o file in build/
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(BIN_DIR)/server: $(SERVER_OBJS) | $(BIN_DIR)
+$(BIN_DIR)/server: $(SERVER_OBJS) | $(BIN_DIR) # links any .o file from build/ to a binary file in bin/server
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
-$(BIN_DIR)/client: $(CLIENT_OBJS) | $(BIN_DIR)
+$(BIN_DIR)/client: $(CLIENT_OBJS) | $(BIN_DIR) # links any .o file from build/ to a binary file in bin/client
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
 # Run helpers
 .PHONY: server client run-server run-client clean rebuild
 
-server: $(BIN_DIR)/server
-client: $(BIN_DIR)/client
+server: $(BIN_DIR)/server 
+client: $(BIN_DIR)/client 
 
 run-server: server
 	$(BIN_DIR)/server
