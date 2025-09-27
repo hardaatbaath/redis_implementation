@@ -10,24 +10,10 @@
 
 #include "utils.h"
 
-// /**
-//  * Print a message to stderr
-//  */
-// static void msg(const char *msg) {
-//     fprintf(stderr, "%s\n", msg); 
-// }
-
-// /**
-//  * Print an error message to stderr and exit the program
-//  */
-// static void die(const char *msg) {
-//     int err = errno;
-//     fprintf(stderr, "[%d] %s\n", err, msg);
-//     abort();
-// }
+const size_t k_max_msg = 4096;
 
 /**
- * Handle the client data handling
+ * Handle the client data handling only 1 request
  */
 static void do_something(int conn_fd) {
     char rbuf[64] = {};
@@ -40,7 +26,51 @@ static void do_something(int conn_fd) {
     printf("Client says: %s\n", rbuf);
 
     char wbuf[] = "Hello to you too, from the server."; // sizeof also includes the null terminator
-    write(conn_fd, wbuf, strlen(wbuf)); // can be replaced with send(), requires additional flags
+    ssize_t wn = write(conn_fd, wbuf, strlen(wbuf)); // can be replaced with send(), requires additional flags
+    if (wn < 0) {
+        msg("write() error");
+        return;
+    }
+    return;
+}
+
+/**
+ * Handle the client data handling multiple requests
+ */
+static int32_t one_request(int conn_fd) {
+    // read the request [4b header + payload]
+    char rbuf[4 + k_max_msg] = {};
+    errno = 0;
+    int32_t err = read_full(conn_fd, rbuf, 4); // read the 4 bytes header
+    if (err) {
+        msg(errno == 0 ? "unexpected EOF" : "read() error");
+        return err;
+    }
+
+    // read the length of the payload
+    uint32_t len = 0;
+    memcpy(&len, rbuf, 4); //copies the 4 bytes from rbuf to len
+    if (len > k_max_msg) {
+        msg("too long");
+        return -1;
+    }
+
+    // read the payload
+    err = read_full(conn_fd, &rbuf[4], len); // reads from after the header
+    if (err) {
+        msg("read() error");
+        return err;
+    }
+    printf("Client says: %s\n", &rbuf[4]);
+
+    // write the response [4b header + payload]
+    const char reply[] = "Hello to you too, from the server.";
+    char wbuf[4 + strlen(reply)];
+    len = (uint)strlen(reply);
+
+    memcpy(wbuf, &len, 4); // copies the 4 bytes from len to wbuf
+    memcpy(wbuf[4], reply, len); // copies the reply to wbuf after the header
+    return write_all(conn_fd, wbuf, 4 + len);
 }
 
 /**
@@ -84,7 +114,11 @@ int main() {
         if (client_fd < 0) { continue; /*error handling*/ }
 
         // handle the client connection
-        do_something(client_fd); 
+        // do_something(client_fd); // this takes 63 bytes per once in connection
+        while (true) {
+            int32_t err = one_request(client_fd);
+            if (err) { break; }
+        }
         close(client_fd);
     }
 

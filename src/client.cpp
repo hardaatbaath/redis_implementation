@@ -48,7 +48,8 @@ int main() {
     msg("[client] connected to 127.0.0.1:8080");
 
     // send a message to the server
-    char msg[] = "Hello from the other side.";
+    // char msg[] = "Hello from the other side.";
+    char msg[] = "Hello, this is a test message designed to exceed sixty-four bytes in length for buffer validation purposes.";
     write(fd, msg, strlen(msg)); //sizeof requires -1
 
     // receive a message from the server
