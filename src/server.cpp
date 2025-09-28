@@ -1,3 +1,4 @@
+#include <assert.h> // for assert
 #include <stdint.h> // for buffer size, and int types
 #include <stdlib.h> // for malloc, free, exit
 #include <string.h> // for strlen, memset, strcpy
@@ -13,28 +14,6 @@
 const size_t k_max_msg = 4096;
 
 /**
- * Handle the client data handling only 1 request
- */
-static void do_something(int conn_fd) {
-    char rbuf[64] = {};
-
-    ssize_t n = read (conn_fd, rbuf, sizeof(rbuf) - 1); // can be replaced with recv(), requires additional flags
-    if (n < 0) {
-        msg("read() error");
-        return;
-    }
-    printf("Client says: %s\n", rbuf);
-
-    char wbuf[] = "Hello to you too, from the server."; // sizeof also includes the null terminator
-    ssize_t wn = write(conn_fd, wbuf, strlen(wbuf)); // can be replaced with send(), requires additional flags
-    if (wn < 0) {
-        msg("write() error");
-        return;
-    }
-    return;
-}
-
-/**
  * Handle the client data handling multiple requests
  */
 static int32_t one_request(int conn_fd) {
@@ -43,7 +22,7 @@ static int32_t one_request(int conn_fd) {
     errno = 0;
     int32_t err = read_full(conn_fd, rbuf, 4); // read the 4 bytes header
     if (err) {
-        msg(errno == 0 ? "unexpected EOF" : "read() error");
+        msg(errno == 0 ? "EOF" : "read() error");
         return err;
     }
 
@@ -61,15 +40,16 @@ static int32_t one_request(int conn_fd) {
         msg("read() error");
         return err;
     }
-    printf("Client says: %s\n", &rbuf[4]);
+    fprintf(stderr, "[server] received %u bytes: %.*s\n", (unsigned)len, (int)len, &rbuf[4]);
 
     // write the response [4b header + payload]
     const char reply[] = "Hello to you too, from the server.";
-    char wbuf[4 + strlen(reply)];
+    char wbuf[4 + sizeof(reply)]; //sizeof instead of strlen as strlen is static and strlen is compiled at runtime
     len = (uint)strlen(reply);
 
     memcpy(wbuf, &len, 4); // copies the 4 bytes from len to wbuf
-    memcpy(wbuf[4], reply, len); // copies the reply to wbuf after the header
+    memcpy(wbuf + 4, reply, len); // copies the reply to wbuf after the header, wbuf + 4 == &wbuf[4]
+    fprintf(stderr, "[server] sending %u bytes: %.*s\n", (unsigned)len, (int)len, reply);
     return write_all(conn_fd, wbuf, 4 + len);
 }
 
@@ -112,11 +92,13 @@ int main() {
         // Here we pass the struct of sockaddr for client address, along with the length of the struct
         int client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_addr_len); 
         if (client_fd < 0) { continue; /*error handling*/ }
+        char client_ip[INET_ADDRSTRLEN] = {};
+        inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, sizeof(client_ip));
+        fprintf(stderr, "[server] accepted connection from %s:%u\n", client_ip, (unsigned)ntohs(client_addr.sin_port));
 
         // handle the client connection
-        // do_something(client_fd); // this takes 63 bytes per once in connection
         while (true) {
-            int32_t err = one_request(client_fd);
+            int32_t err = one_request(client_fd); // This takes multiple requests in the same connection
             if (err) { break; }
         }
         close(client_fd);
