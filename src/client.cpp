@@ -72,19 +72,29 @@ int main() {
     msg("[client] socket created");
 
     // declare the socket connection
-    struct sockaddr_in addr = {};
-    addr.sin_family = AF_INET;
-    addr.sin_port = ntohs(8080);
-    addr.sin_addr.s_addr = ntohl(INADDR_LOOPBACK); // loopback address 127.0.0.1
+    struct sockaddr_in server_addr = {};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = ntohs(8080);
+    server_addr.sin_addr.s_addr = ntohl(INADDR_LOOPBACK); // loopback address 127.0.0.1
+
+    struct sockaddr_in client_addr = {};
+    client_addr.sin_family = AF_INET;
+    client_addr.sin_port = htons(8081);
+    client_addr.sin_addr.s_addr = htonl(INADDR_ANY); // loopback address 0.0.0.0
+    
+    int rv = bind(fd, (const struct sockaddr *)&client_addr, sizeof(client_addr));
+    if (rv < 0) { die("bind()"); }
+    msg("[client] bind successful on 0.0.0.0:8081");
 
     // bind, in `connect` the automatically bind the socket to the address
     // if port or addr not given, the automatically available port and addr would be used to bind the socket to the address
-    int rv = connect (fd, (const struct sockaddr *)&addr, sizeof(addr));
+    rv = connect (fd, (const struct sockaddr *)&server_addr, sizeof(server_addr));
     if (rv < 0) { die("connect()"); }
     msg("[client] connected to 127.0.0.1:8080");
 
     // send a message to the server
     char msg[] = "Hello, this is a test message designed to exceed sixty-four bytes in length for buffer validation purposes.";
+    fprintf(stderr, "> %s\n", msg);
     int32_t err = query(fd, msg);
     if (err) { goto L_DONE; }
     

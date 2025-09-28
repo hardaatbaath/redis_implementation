@@ -40,6 +40,7 @@ static int32_t one_request(int conn_fd) {
         msg("read() error");
         return err;
     }
+    fprintf(stderr, "[server] received %u bytes: %.*s\n", (unsigned)len, (int)len, &rbuf[4]);
 
     // write the response [4b header + payload]
     const char reply[] = "Hello to you too, from the server.";
