@@ -40,7 +40,6 @@ static int32_t one_request(int conn_fd) {
         msg("read() error");
         return err;
     }
-    fprintf(stderr, "[server] received %u bytes: %.*s\n", (unsigned)len, (int)len, &rbuf[4]);
 
     // write the response [4b header + payload]
     const char reply[] = "Hello to you too, from the server.";
@@ -49,7 +48,6 @@ static int32_t one_request(int conn_fd) {
 
     memcpy(wbuf, &len, 4); // copies the 4 bytes from len to wbuf
     memcpy(wbuf + 4, reply, len); // copies the reply to wbuf after the header, wbuf + 4 == &wbuf[4]
-    fprintf(stderr, "[server] sending %u bytes: %.*s\n", (unsigned)len, (int)len, reply);
     return write_all(conn_fd, wbuf, 4 + len);
 }
 
@@ -92,6 +90,8 @@ int main() {
         // Here we pass the struct of sockaddr for client address, along with the length of the struct
         int client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_addr_len); 
         if (client_fd < 0) { continue; /*error handling*/ }
+
+        // get the client ip address
         char client_ip[INET_ADDRSTRLEN] = {};
         inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, sizeof(client_ip));
         fprintf(stderr, "[server] accepted connection from %s:%u\n", client_ip, (unsigned)ntohs(client_addr.sin_port));

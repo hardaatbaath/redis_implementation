@@ -24,7 +24,7 @@ static int32_t query(int fd, const char *text){
     char wbuf[4 + k_max_msg];
     memcpy(wbuf, &len, 4); // copies the 4 bytes from len to wbuf
     memcpy(&wbuf[4], text, len); // copies the text to wbuf after the header
-    fprintf(stderr, "[client] sending %u bytes: %.*s\n", (unsigned)len, (int)len, text);
+    
     if (int32_t err = write_all(fd, wbuf, 4 + len)) {
         msg("write() error");
         return err;
@@ -52,7 +52,6 @@ static int32_t query(int fd, const char *text){
     }
 
     rbuf[4 + len] = '\0'; // explicitely adding the null terminator
-    fprintf(stderr, "[client] received %u bytes: %.*s\n", (unsigned)len, (int)len, &rbuf[4]);
     printf("Server says: %s\n", &rbuf[4]);
     return 0;
 }
