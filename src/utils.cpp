@@ -31,7 +31,7 @@ void msg(const char* message) {
  */
 int32_t read_full(int fd, char* buf, size_t n){
     while (n > 0){
-        ssize_t rv = read(fd, buf, n);
+        ssize_t rv = read(fd, buf, n); // possible that we get less than n bytes
         if (rv <= 0) {
             return -1; // error or unexpected EOF happened
         }
@@ -48,7 +48,7 @@ int32_t read_full(int fd, char* buf, size_t n){
  */
 int32_t write_all(int fd, char* buf, size_t n){
     while (n > 0){
-        ssize_t rv = write(fd, buf, n);
+        ssize_t rv = write(fd, buf, n); // possible that we write less than n bytes
         if (rv <= 0) {
             return -1; // error in writing
         }
