@@ -49,6 +49,134 @@ static void consume_buffer(std::vector<uint_8>& buffer, size_t len) {
     buffer.erase(buffer.begin(), buffer.begin() + len);
 }
 
+/**
+ * Handle the client connection
+ */
+static Connection *handle_accept(int fd) {
+    //accept the connection
+    struct sockaddr_in client_addr = {};
+    socklen_t addrlen = sizeof(client_addr);
+    int conn_fd = accept(fd, (struct sockaddr *)&client_addr, &addrlen);
+    if (conn_fd < 0) { 
+        msg_error("accept() error");
+        return nullptr;
+    }
+    
+    // get the client ip address
+    uint32_t ip = client_addr.sin_addr.s_addr;
+    fprintf(stderr, "[server] accepted connection from %u.%u.%u.%u:%u\n", 
+        ip & 255, (ip >> 8) & 255, (ip >> 16) & 255, (ip >> 24),
+        ntohs(client_addr.sin_port));
+
+    // set the connection to non-blocking
+    fd_set_nb(conn_fd);
+    
+    // create a new connection
+    Connection *conn = new Connection();
+    conn->fd = conn_fd;
+    conn->want_read = true;
+    return conn;
+}
+
+/**
+ * Process one request when there is enough data
+ */
+static bool try_one_request(Connection *conn) {
+    // try to parse the protocol: message header
+    if (conn->incoming.size() < 4) { return false; } // we don't even know the size of the message
+
+    uint32_t len = 0;
+    memcpy(&len, conn->incoming.data(), 4);
+    if (len > k_max_msg) {
+        msg_error("too long");
+        conn->want_close = true;
+        return false;
+    }
+    
+    // Get the message payload
+    if (4 + len > conn->incoming.size()) { return false; } // size of the payload is incorrect
+    const uint8_t *request = conn->incoming.data() + 4;
+
+    // got one payload, apply logic to it
+    printf("[server] received %u bytes: %.*s\n", (unsigned)len, (int)len < 100 ? len : 100, request);
+
+    // generate the response
+    const char reply[] = "Hello to you too, from the server.";
+    len = (uint8_t)strlen(reply);
+    buffer_append(conn->outgoing, &len, 4);
+    buffer_append(conn->outgoing, reply, len);
+
+    // remove the parsed data from the incoming buffer
+    consume_buffer(conn->incoming, 4 + len);
+    return true;
+}
+    buffer_append(conn->outgoing, "Hello to you too, from the server.");
+}
+
+/**
+ * Application callback when the socket is writable
+ */
+static void handle_write(Connection *conn) {
+    assert(!conn->outgoing.empty());
+
+    // write the response to the socket
+    ssize_t rv = write(conn->fd, &conn->outgoing[0], conn->outgoing.size());
+    if (rv < 0) {
+        msg_error("write() error");
+        conn->want_close = true;
+        return;
+    }
+
+    // remove the written data from the outgoing buffer
+    consume_buffer(conn->outgoing, (size_t)rv);
+
+    // update the readiness flag
+    if (conn->outgoing.size() == 0) { // if there is no outgoing data, we want to read
+        conn->want_read = true;
+        conn->want_write = false;
+    }
+}   
+
+/**
+ * Application callback when the socket is readable
+ */
+static void handle_read(Connection *conn) {
+    // read the request [4b header + payload]
+    uint8_t buf[64 * 1024];
+    ssize_t rv = read(conn->fd, buf, sizeof(buf));
+    if (rv < 0) {
+        if (errno == EAGAIN) { return; } // actually not ready
+
+        // handle IO errors
+        msg_error("read() error");
+        conn->want_close = true;
+        return; // want to close the connection
+    }
+
+    // Handle EOF
+    if (rv == 0) {
+        if (conn->incoming.empty()) { msg("client closed connection"); }
+        else { msg("client sent EOF"); }
+        conn->want_close = true;
+        return;
+    }
+    
+    // append the incoming data to the buffer
+    append_buffer(conn->incoming, buf, (size_t)rv);
+
+    // parse the request and generate response
+    while (try_one_request(conn)) {}
+
+    // update the readiness flag
+    if (!conn->outgoing.empty()) { // if there is outgoing data, we want to write
+        conn->want_read = false;
+        conn->want_write = true;
+
+        // The socket is likely ready to write in a request-response protocol,
+        // try to write it without waiting for the next iteration.
+        return handle_write(conn);
+    }
+}
 
 /**
  * Handle the client data handling multiple requests
@@ -97,6 +225,7 @@ static int32_t one_request(int conn_fd) {
  * Return 0
  */
 int main() {
+    // the listening socket
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) { die("socket()"); }
     msg("[server] socket created");
@@ -115,32 +244,83 @@ int main() {
     if (rv) { die("bind()"); } 
     msg("[server] bind successful on 0.0.0.0:8080");
 
+    // set the listen fd to nonblocking mode
+    fd_set_nb(fd);
+
     // listen
     rv = listen(fd, SOMAXCONN);
     if (rv) {die("listen()");} 
     msg("[server] listen successful on 0.0.0.0:8080");
 
+    // a map of all the client connections, keyed by the file descriptor
+    std::map<int, Connection *> fd2conn;
+    
+    // the event loop
+    std::vector<struct pollfd> poll_args;
     while (true) {
-        // accept
-        struct sockaddr_in client_addr = {};
-        socklen_t client_addr_len = sizeof(client_addr);
+        // prepare the arguments for the poll()
+        poll_args.clear();
 
-        // Here we pass the struct of sockaddr for client address, along with the length of the struct
-        int client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_addr_len); 
-        if (client_fd < 0) { continue; /*error handling*/ }
+        // put the listening socket into the poll_args in the first position
+        struct pollfd pfd = {fd, POLLIN, 0};
+        poll_args.push_back(pfd);
 
-        // get the client ip address
-        char client_ip[INET_ADDRSTRLEN] = {};
-        inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, sizeof(client_ip));
-        fprintf(stderr, "[server] accepted connection from %s:%u\n", client_ip, (unsigned)ntohs(client_addr.sin_port));
+        // the rest are the connection sockets
+        for (Connection *conn : fd2conn) {
+            if (!conn) { continue; }
 
-        // handle the client connection
-        while (true) {
-            int32_t err = one_request(client_fd); // This takes multiple requests in the same connection
-            if (err) { break; }
+            // always poll() for errors
+            struct pollfd pfd = {conn->fd, POLLIN | POLLOUT, 0};
+            if (conn->want_read) { pfd.events |= POLLIN; } // if we want to read, add POLLIN to the events
+            if (conn->want_write) { pfd.events |= POLLOUT; } // if we want to write, add POLLOUT to the events
+            poll_args.push_back(pfd);
         }
-        close(client_fd);
-    }
 
+        // poll() for events, polling for readiness
+        rv = poll(poll_args.data(), (nfds_t)poll_args.size(), -1);
+        if (rv < 0) { 
+            if (errno == EINTR) { continue; }
+            die("poll()"); 
+        }
+        
+        // handle the listening socket
+        if (poll_args[0].revents) {
+            if (Connection *conn = handle_accept(fd)) {
+                // put it in the map
+                if (fd2conn.size() <= (size_t) conn->fd) { fd2conn.resize(conn->fd + 1); }
+                
+                // put it in the map
+                assert(!fd2conn[conn->fd]);
+                fd2conn[conn->fd] = conn;
+            }
+        }
+
+        // handle the client connections sockets
+        for (size_t i = 1; i < poll_args.size(); i++) { // skipping the first, as we put it there
+            uint32_t ready = poll_args[i].revents;
+            if (ready == 0) { continue; }
+
+            // get the connection
+            Connection *conn = fd2conn[poll_args[i].fd];
+            
+            if (ready & POLLIN) { 
+                assert(conn->want_read);
+                handle_read(conn); 
+            }
+
+            if (ready & POLLOUT) { 
+                assert(conn->want_write);
+                handle_write(conn); 
+            }
+
+            if ((ready & POLLERR) || conn->want_close) {
+                (void)close(conn->fd);
+                fd2conn[conn->fd] = NULL;
+                delete conn;
+            }
+        }
+        // for each connection socket
+    }
+    // for event loop
     return 0;
 }
