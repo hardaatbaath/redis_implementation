@@ -7,12 +7,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h> // for read, write
+#include <fcntl.h> // for fcntl
 
 /**
  * Print a message to stderr
  */
-void msg(const char* message) {
+[[noreturn]] void msg(const char* message) {
     fprintf(stderr, "%s\n", message);
+}
+
+/**
+ * Print an error message to stderr
+ */
+[[noreturn]] void msg_error(const char* message) {
+    fprintf(stderr, "[ERROR] %s\n", message);
 }
 
 /**
@@ -22,6 +30,19 @@ void msg(const char* message) {
     const int currentErrno = errno;
     fprintf(stderr, "[%d] %s\n", currentErrno, context);
     abort();
+}
+
+/**
+ * Set the file descriptor to non-blocking mode
+ */
+[[noreturn]] void fd_set_nb(int fd) {
+    errno = 0;
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (errno) { die("fcntl() read error"); }
+
+    flags |= O_NONBLOCK;
+    (void)fcntl(fd, F_SETFL, flags);
+    if (errno) { die("fcntl() write error"); }
 }
 
 /**
