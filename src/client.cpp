@@ -1,13 +1,14 @@
-#include <assert.h> // for assert
-#include <stdint.h> // for buffer size, and int types
-#include <stdlib.h> // for malloc, free, exit
-#include <string.h> // for strlen, memset, strcpy
-#include <stdio.h> // for printf, perror
-#include <errno.h> // for errno, strerror
-#include <unistd.h> // for close, read, write
-#include <arpa/inet.h> // for inet_addr, inet_pton
-#include <sys/socket.h> // for socket, connect, bind
-#include <netinet/ip.h> // for IPPROTO_TCP,struct iphdr
+// C stdlib
+#include <stdint.h>
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+
+// POSIX / system (socket API, inet helpers, read/write)
+#include <unistd.h>      // read, write, close
+#include <arpa/inet.h>   // htons, htonl, ntohs, ntohl
+#include <netinet/in.h>  // sockaddr_in
+#include <sys/socket.h>  // socket, connect, bind
 
 #include "utils.h"
 
