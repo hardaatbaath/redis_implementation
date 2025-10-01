@@ -227,7 +227,8 @@ int main() {
             die("poll()"); 
         }
         
-        // handle the listening socket
+        // handle the listening socket, poll_args[0] is the listening socket
+        // revents is the events that happened on the socket
         if (poll_args[0].revents) {
             if (Connection *conn = handle_accept(fd)) {
                 // put it in the map
@@ -236,6 +237,7 @@ int main() {
                 // put it in the map
                 assert(!fd2conn[conn->fd]);
                 fd2conn[conn->fd] = conn;
+                // here the mapping is the position being same as the file descriptor
             }
         }
 
