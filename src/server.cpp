@@ -6,6 +6,7 @@
 #include <assert.h>
 
 // POSIX / system (socket API, inet helpers, read/write, poll)
+#include <sys/types.h>
 #include <unistd.h>      // read, write, close
 #include <arpa/inet.h>   // htons, htonl, ntohs, inet_ntop
 #include <netinet/in.h>  // sockaddr_in
@@ -125,7 +126,7 @@ static void handle_write(Connection *conn) {
  */
 static void handle_read(Connection *conn) {
     // read the request [4b header + payload]
-    uint8_t buf[130 * 1024];
+    uint8_t buf[64 * 1024];
     ssize_t rv = read(conn->fd, buf, sizeof(buf));
     if (rv < 0) {
         if (errno == EAGAIN) { return; } // actually not ready
