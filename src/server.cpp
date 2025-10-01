@@ -15,7 +15,6 @@
 
 // C++ stdlib
 #include <vector>
-#include <map>
 
 // local
 #include "utils.h"
