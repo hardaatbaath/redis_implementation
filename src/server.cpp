@@ -100,12 +100,12 @@ static bool try_one_request(Connection *conn) {
  * Application callback when the socket is writable
  */
 static void handle_write(Connection *conn) {
-    assert(!conn->outgoing.empty());
+    assert(!conn->outgoing.empty()); // check if there is any outgoing data
 
-    // write the response to the socket
+    // write the response to the socket, outgoing[0] is the pointer to the buffer
     ssize_t rv = write(conn->fd, &conn->outgoing[0], conn->outgoing.size());
     if (rv < 0) {
-        msg_error("write() error");
+        msg_error("write() error"); // write() error
         conn->want_close = true;
         return;
     }
@@ -136,7 +136,7 @@ static void handle_read(Connection *conn) {
         return; // want to close the connection
     }
 
-    // Handle EOF
+    // Handle EOF, closing as we are done with the connection
     if (rv == 0) {
         if (conn->incoming.empty()) { msg("client closed connection"); }
         else { msg("client sent EOF"); }
