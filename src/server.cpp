@@ -19,7 +19,7 @@
 // local
 #include "utils.h"
 
-const size_t k_max_msg = 4096;
+const size_t k_max_msg = 32 << 20;
 
 struct Connection {
     int fd = -1; // by default, set -1
@@ -47,10 +47,15 @@ static Connection *handle_accept(int fd) {
         return nullptr;
     }
     
-    // get the client ip address
+    // get the client ip address, remember that IP is in little endian
+    // eg: 192.168.1.100 is 0xc0a80164 in little endian
+    // uint8_t byte0 = ip & 0xFF;           // 0xC0 = 192
+    // uint8_t byte1 = (ip >> 8) & 0xFF;    // 0xA8 = 168
+    // uint8_t byte2 = (ip >> 16) & 0xFF;   // 0x01 = 1
+    // uint8_t byte3 = (ip >> 24) & 0xFF;   // 0x0A = 10
     uint32_t ip = client_addr.sin_addr.s_addr;
     fprintf(stderr, "[server] accepted connection from %u.%u.%u.%u:%u\n", 
-        ip & 255, (ip >> 8) & 255, (ip >> 16) & 255, (ip >> 24),
+        ip & 255, (ip >> 8) & 255, (ip >> 16) & 255, (ip >> 24), // moving 8 bits bcuz uint32_t is 4 bytes
         ntohs(client_addr.sin_port));
 
     // set the connection to non-blocking
@@ -83,7 +88,7 @@ static bool try_one_request(Connection *conn) {
     const uint8_t *request = conn->incoming.data() + 4;
 
     // got one payload, apply logic to it
-    printf("[server] received %u bytes: %.*s\n", (unsigned)len, (unsigned)len, request);
+    printf("[server] received %u bytes: %.*s\n", (unsigned)len, len > 100 ? 100 : len, request); // $.*s is used to limit the output, avoids relying on null terminator "\0"
 
     // generate the response
     const char reply[] = "Hello to you too, from the server.";
@@ -91,7 +96,7 @@ static bool try_one_request(Connection *conn) {
     append_buffer(conn->outgoing, (const uint8_t*)&rlen, 4);
     append_buffer(conn->outgoing, (const uint8_t*)reply, rlen);
 
-    // remove the parsed request from the incoming buffer
+    // remove the parsed request from the incoming buffer instead of clearing the buffer as there may be multiple requests in the buffer
     consume_buffer(conn->incoming, 4 + len);
     return true;
 }
@@ -105,6 +110,8 @@ static void handle_write(Connection *conn) {
     // write the response to the socket, outgoing[0] is the pointer to the buffer
     ssize_t rv = write(conn->fd, &conn->outgoing[0], conn->outgoing.size());
     if (rv < 0) {
+        if (errno == EAGAIN) { return; } // actually not ready to write as the buffer is full
+
         msg_error("write() error"); // write() error
         conn->want_close = true;
         return;
@@ -125,7 +132,7 @@ static void handle_write(Connection *conn) {
  */
 static void handle_read(Connection *conn) {
     // read the request [4b header + payload]
-    uint8_t buf[64 * 1024];
+    uint8_t buf[64 * 1024]; // 64KB buffer
     ssize_t rv = read(conn->fd, buf, sizeof(buf));
     if (rv < 0) {
         if (errno == EAGAIN) { return; } // actually not ready
@@ -138,8 +145,8 @@ static void handle_read(Connection *conn) {
 
     // Handle EOF, closing as we are done with the connection
     if (rv == 0) {
-        if (conn->incoming.empty()) { msg("client closed connection"); }
-        else { msg("client sent EOF"); }
+        if (conn->incoming.empty()) { msg("[server] client closed connection"); }
+        else { msg("unexpected EOF"); }
         conn->want_close = true;
         return;
     }
@@ -147,7 +154,7 @@ static void handle_read(Connection *conn) {
     // append the incoming data to the buffer
     append_buffer(conn->incoming, buf, (size_t)rv);
 
-    // parse the request and generate response
+    // parse the request and generate response, in a while loop as there may be multiple requests in the buffer
     while (try_one_request(conn)) {}
 
     // update the readiness flag
