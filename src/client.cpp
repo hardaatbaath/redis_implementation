@@ -11,8 +11,7 @@
 #include <sys/socket.h>  // socket, connect, bind
 
 #include "utils.h"
-
-const size_t k_max_msg = 32 << 20;
+#include "constants.h"
 
 /**
  * Send a request to the server

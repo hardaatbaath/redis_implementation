@@ -18,8 +18,7 @@
 
 // local
 #include "utils.h"
-
-const size_t k_max_msg = 32 << 20;
+#include "constants.h"
 
 struct Connection {
     int fd = -1; // by default, set -1
