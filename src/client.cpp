@@ -14,47 +14,70 @@
 #include "constants.h"
 
 /**
- * Send a request to the server
+ * Send argv-framed request to the server
+ * payload = [num_args:u32][len:u32 arg0][bytes...][len:u32 arg1][bytes...] ...
+ * frame   = [payload_len:u32][payload_bytes]
  */
-static int32_t send_request(int fd, const uint8_t *text, size_t len){
-    if (len > k_max_msg) { return -1; }
+static int32_t send_request(int fd, const std::vector<std::string> &argv){
+    // log what we are about to send
+    std::string command;
+    for (size_t i = 0; i < argv.size(); i++) {
+        command += argv[i];
+    }
+    fprintf(stderr, "[client] command: '%s'\n", command.c_str());
 
-    std::vector<uint8_t> wbuf;
-    append_buffer(wbuf, (const uint8_t*)&len, 4);
-    append_buffer(wbuf, text, len);
+    std::vector<uint8_t> payload;
+    uint32_t num_args = (uint32_t)argv.size();
+    append_buffer(payload, (const uint8_t*)&num_args, 4);
+    for (const std::string &arg : argv) {
+        uint32_t arg_len = (uint32_t)arg.size();
+        append_buffer(payload, (const uint8_t*)&arg_len, 4);
+        if (arg_len) { append_buffer(payload, (const uint8_t*)arg.data(), arg_len); }
+    }
 
-    return write_all(fd, (char*) wbuf.data(), wbuf.size());
+    uint32_t payload_len = (uint32_t)payload.size();
+    if (payload_len > k_max_msg) { return -1; }
+
+    std::vector<uint8_t> frame;
+    append_buffer(frame, (const uint8_t*)&payload_len, 4);
+    append_buffer(frame, payload.data(), payload.size());
+    return write_all(fd, (char*) frame.data(), frame.size());
 }
 
 /**
  * Read a response from the server
  */
 static int32_t read_response(int fd){
-    // 4 bit header
-    std::vector<uint8_t> rbuf;
-    rbuf.resize(4);
+    // Read frame header (payload length)
+    std::vector<uint8_t> rbuf(4);
     errno = 0;
-
-    int32_t err = read_full(fd, (char*) rbuf.data(), 4);
-    if (err) { 
-        if (errno == 0) {msg("unexpected EOF");} 
-        else {msg("read() error");} 
-        return err;
-    }
-
-    uint32_t len = 0;
-    memcpy(&len, rbuf.data(), 4);
-    if (len > k_max_msg) { msg("response too long"); return -1; }
-
-    rbuf.resize(4 + len);
-    err = read_full(fd, (char*) rbuf.data() + 4, len);
+    int32_t err = read_full(fd, (char*)rbuf.data(), 4);
     if (err) {
-        msg("read() error"); 
+        if (errno == 0) { msg("unexpected EOF"); }
+        else { msg("read() error"); }
         return err;
     }
 
-    rbuf[4 + len] = '\0';
-    printf("Server says: %s\n", (char*) rbuf.data() + 4);
+    uint32_t payload_len = 0;
+    memcpy(&payload_len, rbuf.data(), 4);
+    if (payload_len > k_max_msg || payload_len < 4) { msg("bad response length"); return -1; }
+
+    rbuf.resize(4 + payload_len);
+    err = read_full(fd, (char*)rbuf.data() + 4, payload_len);
+    if (err) { msg("read() error"); return err; }
+
+    // Parse payload: [status:u32][data...]
+    uint32_t status = 0;
+    memcpy(&status, rbuf.data() + 4, 4);
+    size_t data_len = payload_len - 4;
+    const uint8_t *data_ptr = rbuf.data() + 8;
+
+    fprintf(stderr, "[client] status: %u, data_len: %zu\n", (unsigned)status, data_len);
+    if (data_len > 0) {
+        std::vector<uint8_t> tmp(data_ptr, data_ptr + data_len);
+        tmp.push_back('\0');
+        printf("%s\n", (char*)tmp.data());
+    }
     return 0;
 }
 
@@ -111,21 +134,30 @@ int main(int argc, char *argv[]) {
     if (rv < 0) { die("connect()"); }
     msg("[client] connected to 127.0.0.1:8080");
 
-    // send multiple pipelined requests to the server
+    // send one argv-framed request from CLI args
     std::vector<std::string> request;
-    
-    for (int i = 0; i< argc; i++) {
-        request.push_back(argv[i]); // copy the string to the vector
+
+    for (int i = 1; i < argc; i++) { request.push_back(argv[i]); }
+
+    if (request.empty()) { 
+        msg("usage: client CMD [ARGS...]"); 
+        close(fd);
+        return 0;
     }
-   
-    int32_t err = send_request(fd, (const uint8_t*) request.data(), request.size());
-    if (err) { goto L_DONE; }
-    
+
+    // send the request to the server
+    int32_t err = send_request(fd, request);
+    if (err) { 
+        msg("write() error"); 
+        goto L_DONE; 
+    }
 
     // read the response from the server
     err = read_response(fd);
-    if (err) { goto L_DONE; }
-    
+    if (err) { 
+        msg("read() error"); 
+        goto L_DONE; 
+    }
 
     L_DONE:
         // close the connection

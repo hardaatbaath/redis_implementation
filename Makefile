@@ -44,7 +44,7 @@ run-server: server
 	$(BIN_DIR)/server
 
 run-client: client
-	$(BIN_DIR)/client
+	$(BIN_DIR)/client $(ARGS)
 
 # Utilities
 clean:
