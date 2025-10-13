@@ -238,6 +238,13 @@ static bool handle_one_request(Connection *conn) {
     }
 
     Response resp;
+    // Log parsed command
+    std::string command;
+    for (size_t i = 0; i < cmd.size(); i++) {
+        command += cmd[i];
+    }
+    fprintf(stderr, "[server] command: '%s'\n", command.c_str());
+
     // Run the request
     run_request(cmd, resp);
     // Generate the response
