@@ -22,7 +22,7 @@ static int32_t send_request(int fd, const std::vector<std::string> &argv){
     // log what we are about to send
     std::string command;
     for (size_t i = 0; i < argv.size(); i++) {
-        command += argv[i];
+        command = command + argv[i] + (i < argv.size() - 1 ? " " : "");
     }
     fprintf(stderr, "[client] command: '%s'\n", command.c_str());
 
