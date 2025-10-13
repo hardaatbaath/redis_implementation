@@ -241,7 +241,7 @@ static bool handle_one_request(Connection *conn) {
     // Log parsed command
     std::string command;
     for (size_t i = 0; i < cmd.size(); i++) {
-        command += cmd[i];
+        command = command + cmd[i] + (i < cmd.size() - 1 ? " " : "");
     }
     fprintf(stderr, "[server] command: '%s'\n", command.c_str());
 
