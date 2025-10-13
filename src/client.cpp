@@ -1,8 +1,8 @@
 // C stdlib
-#include <stdint.h>
-#include <string.h>
-#include <stdio.h>
-#include <errno.h>
+#include <stdint.h>      // uint8_t, uint32_t
+#include <string.h>      // memcpy
+#include <stdio.h>       // printf
+#include <errno.h>       // errno
 
 // POSIX / system (socket API, inet helpers, read/write)
 #include <unistd.h>      // read, write, close
@@ -66,7 +66,7 @@ static int32_t read_response(int fd){
  * Close the connection
  * Return 0
  */
-int main() {
+int main(int argc, char *argv[]) {
 
     // create a socket
     int fd = socket(AF_INET, SOCK_STREAM, 0); // 0 is the default protocol
@@ -112,23 +112,20 @@ int main() {
     msg("[client] connected to 127.0.0.1:8080");
 
     // send multiple pipelined requests to the server
-    std::vector<std::string> requests = {
-        "hello1", "hello2", "hello3",
-        // a large message requires multiple event loop iterations
-        std::string(k_max_msg, 'z'),
-        "hello5",
-    };
+    std::vector<std::string> request;
     
-    for (const std::string& request : requests) {
-        int32_t err = send_request(fd, (const uint8_t*) request.data(), request.size());
-        if (err) { goto L_DONE; }
+    for (int i = 0; i< argc; i++) {
+        request.push_back(argv[i]); // copy the string to the vector
     }
+   
+    int32_t err = send_request(fd, (const uint8_t*) request.data(), request.size());
+    if (err) { goto L_DONE; }
+    
 
     // read the response from the server
-    for (size_t i = 0; i < requests.size(); i++) {
-        int32_t err = read_response(fd);
-        if (err) { goto L_DONE; }
-    }
+    err = read_response(fd);
+    if (err) { goto L_DONE; }
+    
 
     L_DONE:
         // close the connection
