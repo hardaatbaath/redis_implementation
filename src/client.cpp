@@ -13,23 +13,33 @@
 #include "utils.h"
 #include "constants.h"
 
+// C++ stdlib
+#include <string>
+#include <vector>
+#include <sstream>
+#include <iostream>
+
 /**
  * Send argv-framed request to the server
  * payload = [num_args:u32][len:u32 arg0][bytes...][len:u32 arg1][bytes...] ...
  * frame   = [payload_len:u32][payload_bytes]
  */
-static int32_t send_request(int fd, const std::vector<std::string> &argv){
+static int32_t send_request(int fd, const std::vector<std::string> &cmd){
     // log what we are about to send
     std::string command;
-    for (size_t i = 0; i < argv.size(); i++) {
-        command = command + argv[i] + (i < argv.size() - 1 ? " " : "");
+    for (size_t i = 0; i < cmd.size(); i++) {
+        command = command + cmd[i] + (i < cmd.size() - 1 ? " " : "");
     }
     fprintf(stderr, "[client] command: '%s'\n", command.c_str());
 
     std::vector<uint8_t> payload;
-    uint32_t num_args = (uint32_t)argv.size();
+    uint32_t num_args = (uint32_t)cmd.size();
+
+    // append the number of arguments
     append_buffer(payload, (const uint8_t*)&num_args, 4);
-    for (const std::string &arg : argv) {
+
+    // append the arguments
+    for (const std::string &arg : cmd) {
         uint32_t arg_len = (uint32_t)arg.size();
         append_buffer(payload, (const uint8_t*)&arg_len, 4);
         if (arg_len) { append_buffer(payload, (const uint8_t*)arg.data(), arg_len); }
@@ -89,7 +99,7 @@ static int32_t read_response(int fd){
  * Close the connection
  * Return 0
  */
-int main(int argc, char *argv[]) {
+int main() {//int argc, char *argv[]) {
 
     // create a socket
     int fd = socket(AF_INET, SOCK_STREAM, 0); // 0 is the default protocol
@@ -114,17 +124,27 @@ int main(int argc, char *argv[]) {
 
     int rv = bind(fd, (const struct sockaddr *)&client_addr, sizeof(client_addr));
     if (rv < 0) { die("bind()"); }
+    
     // log the actual bound ephemeral port
     struct sockaddr_in bound_addr = {};
     socklen_t bound_len = sizeof(bound_addr);
+    
+    // get the actual bound ephemeral port
     if (getsockname(fd, (struct sockaddr *)&bound_addr, &bound_len) == 0) {
         char ipbuf[INET_ADDRSTRLEN] = {0};
+
+        // convert the IP address to a string
         const char *ipstr = inet_ntop(AF_INET, &bound_addr.sin_addr, ipbuf, sizeof(ipbuf));
+
+        // format the IP address and port
         char buf[128];
         snprintf(buf, sizeof(buf), "[client] bind successful on %s:%u",
                  ipstr ? ipstr : "127.0.0.1", (unsigned)ntohs(bound_addr.sin_port));
+
+        // log the actual bound ephemeral port
         msg(buf);
-    } else {
+    } 
+    else {
         msg("[client] bind successful on 127.0.0.1:<ephemeral>");
     }
 
@@ -134,29 +154,46 @@ int main(int argc, char *argv[]) {
     if (rv < 0) { die("connect()"); }
     msg("[client] connected to 127.0.0.1:8080");
 
-    // send one argv-framed request from CLI args
-    std::vector<std::string> request;
+    // // send one argv-framed request from CLI args
+    // std::vector<std::string> request;
 
-    for (int i = 1; i < argc; i++) { request.push_back(argv[i]); }
+    // for (int i = 1; i < argc; i++) { request.push_back(argv[i]); }
 
-    if (request.empty()) { 
-        msg("usage: client CMD [ARGS...]"); 
-        close(fd);
-        return 0;
-    }
+    // if (request.empty()) { 
+    //     msg("usage: client CMD [ARGS...]"); 
+    //     close(fd);
+    //     return 0;
+    // }
 
-    // send the request to the server
-    int32_t err = send_request(fd, request);
-    if (err) { 
-        msg("write() error"); 
-        goto L_DONE; 
-    }
+    // interactive REPL: read commands from stdin and send to server
+    while (true) {
+        fprintf(stderr, "> ");
+        std::string line;
+        if (!std::getline(std::cin, line)) {
+            break; // EOF or input error
+        }
+        if (line.empty()) { continue; }
 
-    // read the response from the server
-    err = read_response(fd);
-    if (err) { 
-        msg("read() error"); 
-        goto L_DONE; 
+        // tokenize by whitespace
+        std::istringstream iss(line);
+        std::vector<std::string> request;
+        for (std::string tok; iss >> tok; ) { request.push_back(tok); }
+        if (request.empty()) { continue; }
+        if (request[0] == "exit" || request[0] == "quit") { break; }
+
+        // send the request to the server
+        int32_t err = send_request(fd, request);
+        if (err) { 
+            msg("write() error"); 
+            goto L_DONE; 
+        }
+
+        // read the response from the server
+        err = read_response(fd);
+        if (err) { 
+            msg("read() error"); 
+            goto L_DONE; 
+        }
     }
 
     L_DONE:

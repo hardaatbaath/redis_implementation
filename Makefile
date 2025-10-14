@@ -44,8 +44,7 @@ run-server: server
 	$(BIN_DIR)/server
 
 run-client: client
-	$(BIN_DIR)/client $(ARGS)
-
+	$(BIN_DIR)/client
 # Utilities
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)

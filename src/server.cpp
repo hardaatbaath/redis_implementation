@@ -149,14 +149,14 @@ static int32_t parse_request(const uint8_t *data, size_t size, std::vector<std::
  * Run one request
  */
 static void run_request(std::vector<std::string> &cmd, Response &resp) {
-    // PING request
-    if (cmd.size() == 1 && cmd[0] == "PING") {
-        const uint8_t *p = (const uint8_t*)"PONG";
+    // ping request
+    if (cmd.size() == 1 && cmd[0] == "ping") {
+        const uint8_t *p = (const uint8_t*)"pong";
         resp.data.assign(p, p + 4);
     }
 
-    // GET request
-    else if (cmd.size() == 2 && cmd[0] == "GET") {
+    // get request
+    else if (cmd.size() == 2 && cmd[0] == "get") {
         auto it = keyValueStore.find(cmd[1]);
         if (it == keyValueStore.end()) {
             resp.status = RES_NX;        // Not Found command
@@ -166,28 +166,29 @@ static void run_request(std::vector<std::string> &cmd, Response &resp) {
         resp.data.assign(value.begin(), value.end());
     }
 
-    // SET request
-    else if (cmd.size() == 3 && cmd[0] == "SET") {
+    // set request
+    else if (cmd.size() == 3 && cmd[0] == "set") {
         keyValueStore[cmd[1]].swap(cmd[2]);    // swap the value of the key
     }
 
-    // DEL request
-    else if (cmd.size() == 2 && cmd[0] == "DEL") {
+    // del request
+    else if (cmd.size() == 2 && cmd[0] == "del") {
         keyValueStore.erase(cmd[1]);
     }
 
-    // ALL_KEYS request
-    else if (cmd.size() == 1 && cmd[0] == "ALL_KEYS") {
+    // all keys request
+    else if (cmd.size() == 2 && cmd[0] == "all" && cmd[1] == "keys") {
+        bool first = true;
         for (const auto &entry : keyValueStore) {
-            const std::string &key = entry.first;
+            const std::string &key = (first ? "" : "\n") + entry.first + " " + entry.second; // add a newline if not the first entry
+            first = false;
             resp.data.insert(resp.data.end(), key.begin(), key.end());
-            resp.data.push_back('\n');
         }
     }
 
-    // Unknown request
+    // unknown request
     else {
-        resp.status = RES_ERR;        // Unknown command
+        resp.status = RES_ERR;        // unknown command
         return;
     }
 
