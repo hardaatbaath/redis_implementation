@@ -4,6 +4,7 @@
 
 
 #include "hashtable.h"
+#include "constants.h"
 
 
 
@@ -15,17 +16,6 @@ void h_init(HashTable *ht, size_t size) {
     ht->tab = (HashNode **)calloc(size, sizeof(HashNode *));   // give memory for "size" number of HashNode pointers
     ht->mask = size - 1;
     ht->size = 0;
-}
-
-/**
- * Insert a node into the hash table
- */
-void h_insert(HashTable *ht, HashNode *node) {
-    size_t pos = node->hash_code & ht->mask;     // node->hash_code & (table_size - 1); mask = table_size - 1 (when size is power of 2)
-    HashNode *next = ht->tab[pos];               // get the head of the chain
-    node->next = next;                           // set the next node as the head of the chain
-    ht->tab[pos] = node;                         // set the node as the head of the chain
-    ht->size++;                                  // increment the number of keys in the table
 }
 
 /** 
@@ -45,6 +35,17 @@ HashNode **h_lookup(HashTable *ht, HashNode *key, bool (*eq)(HashNode *, HashNod
 }
 
 /**
+ * Insert a node into the hash table
+ */
+ void h_insert(HashTable *ht, HashNode *node) {
+    size_t pos = node->hash_code & ht->mask;     // node->hash_code & (table_size - 1); mask = table_size - 1 (when size is power of 2)
+    HashNode *next = ht->tab[pos];               // get the head of the chain
+    node->next = next;                           // set the next node as the head of the chain
+    ht->tab[pos] = node;                         // set the node as the head of the chain
+    ht->size++;                                  // increment the number of keys in the table
+}
+
+/**
  * Detach a node from the hash table
  */
 HashNode *h_detach(HashTable *ht, HashNode **node) {
@@ -52,4 +53,83 @@ HashNode *h_detach(HashTable *ht, HashNode **node) {
     *node = target->next;       // Update the incoming pointer to the target's next node
     ht->size--;
     return target;
+}
+
+/**
+ * Trigger the rehashing of the hash table
+ */
+void hm_trigger_rehash(HashMap *hmap) {
+    hmap->older = hmap->newer;    // (older, newer) <- (newer, older)
+    h_init(&hmap->newer, (size_t)(hmap->older.size + 1) * 2);
+    hmap->migration_pos = 0;
+}
+
+/**
+ * Help migrate the keys from the older table to the newer table
+ */
+void hm_help_rehashing(HashMap *hmap) {
+    size_t work = 0;
+    while (work < k_rehashing_work && hmap->older.size > 0) {
+
+        // Find an empty slot
+        HashNode **from = &hmap->older.tab[hmap->migration_pos];
+        if (!from) {
+            hmap->migration_pos++;
+            continue; // Skip this slot
+        }
+
+        // Move the first list item to the newer table
+        h_insert(&hmap->newer, h_detach(&hmap->older, from));
+        work++;
+    }
+
+    // If the old table is empty, discard
+    if (hmap->older.size == 0 && hmap->older.tab) {
+        free(hmap->older.tab);
+        hmap->older = HashTable{};
+    }
+}
+
+/**
+ * Lookup a node in the hash table via hashmap
+ */
+HashNode *hm_lookup(HashMap *hmap, HashNode *key, bool (*eq)(HashNode *, HashNode *)) {
+    // First search in the older table
+    HashNode **from = h_lookup(&hmap->older, key, eq);
+    
+    // If not found, search in the newer table
+    if (!from) { from = h_lookup(&hmap->newer, key, eq); }
+
+    return from? *from : NULL;
+}
+
+/**
+ * Insert a node into the hash table via hashmap
+ */
+void hm_insert(HashMap *hmap, HashNode *node) {
+    // If the newer table is not initialized, initialize it with a size of 4
+    if (!hmap->newer.tab) { h_init(&hmap->newer, 4); }
+
+    h_insert(&hmap->newer, node); // Always insert into the newer table
+
+    // If the older table is not initialized, this means that we are currently in the process of rehashing
+    // So we need to trigger the rehashing if the load factor is exceeded
+    if (!hmap->older.tab) { 
+        size_t threshold = (hmap->newer.mask + 1) * k_max_load_factor;
+        if (hmap->newer.size >= threshold) { hm_trigger_rehash(hmap); }
+    }
+
+    // Help migrate the keys
+    hm_help_rehashing(hmap);
+}
+
+/**
+ * Delete a node from the hash table via hashmap
+ */
+HashNode *hm_delete(HashMap *hmap, HashNode *key, bool (*eq)(HashNode *, HashNode *)) {
+    // First delete from the older table
+    if (HashNode **from = h_lookup(&hmap->older, key, eq)) { return h_detach(&hmap->older, from); }
+    // If not found, delete from the newer table
+    if (HashNode **from = h_lookup(&hmap->newer, key, eq)) { return h_detach(&hmap->newer, from); }
+    return NULL;
 }
