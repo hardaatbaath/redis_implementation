@@ -1,8 +1,8 @@
 // C stdlib
-#include <stdint.h>      // uint8_t, uint32_t
-#include <string.h>      // memcpy
-#include <stdio.h>       // printf
-#include <errno.h>       // errno
+#include <stdint.h>      // uint8_t, uint32_t (framing)
+#include <string.h>      // memcpy (response parsing)
+#include <stdio.h>       // printf, fprintf (logging)
+#include <errno.h>       // errno (read_response)
 
 // POSIX / system (socket API, inet helpers, read/write)
 #include <unistd.h>      // read, write, close
@@ -10,14 +10,15 @@
 #include <netinet/in.h>  // sockaddr_in
 #include <sys/socket.h>  // socket, connect, bind
 
-#include "utils.h"
-#include "constants.h"
+// local
+#include "core/sys.h"        // msg, die, append_buffer, read_all, write_all
+#include "core/constants.h"  // k_max_msg
 
 // C++ stdlib
-#include <string>
-#include <vector>
-#include <sstream>
-#include <iostream>
+#include <string>        // std::string
+#include <vector>        // std::vector
+#include <sstream>       // std::istringstream
+#include <iostream>      // std::getline
 
 /**
  * Send argv-framed request to the server
@@ -61,7 +62,7 @@ static int32_t read_response(int fd){
     // Read frame header (payload length)
     std::vector<uint8_t> rbuf(4);
     errno = 0;
-    int32_t err = read_full(fd, (char*)rbuf.data(), 4);
+    int32_t err = read_all(fd, (char*)rbuf.data(), 4);
     if (err) {
         if (errno == 0) { msg("unexpected EOF"); }
         else { msg("read() error"); }
@@ -73,7 +74,7 @@ static int32_t read_response(int fd){
     if (payload_len > k_max_msg || payload_len < 4) { msg("bad response length"); return -1; }
 
     rbuf.resize(4 + payload_len);
-    err = read_full(fd, (char*)rbuf.data() + 4, payload_len);
+    err = read_all(fd, (char*)rbuf.data() + 4, payload_len);
     if (err) { msg("read() error"); return err; }
 
     // Parse payload: [status:u32][data...]

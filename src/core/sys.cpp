@@ -1,19 +1,19 @@
-// src/utils.cpp
-#include "utils.h"
-
 // C stdlib
-#include <assert.h>
-#include <errno.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <assert.h>  // assert (read_all, write_all)
+#include <errno.h>   // errno  (die, fd_set_nb)
+#include <stdint.h>  // standard types
+#include <stdio.h>   // fprintf (msg, msg_error, die)
+#include <stdlib.h>  // abort (die)
 
 // POSIX / system
-#include <unistd.h> // read, write
-#include <fcntl.h>  // fcntl
+#include <unistd.h>  // read, write (read_all, write_all)
+#include <fcntl.h>   // fcntl (fd_set_nb)
 
 // C++ stdlib
-#include <vector>
+#include <vector>    // std::vector (append_buffer, consume_buffer)
+
+// local
+#include "sys.h"    // public API declarations
 
 /**
  * Print a message to stderr
@@ -57,7 +57,7 @@ void fd_set_nb(int fd) {
  * size_t is unsigned int, used for memory allocation
  * ssize_t is signed int, used for file descriptor
 */
-int32_t read_full(int fd, char* buf, size_t n){
+int32_t read_all(int fd, char* buf, size_t n){
     while (n > 0){
         ssize_t rv = read(fd, buf, n); // possible that we get less than n bytes
         if (rv <= 0) {
@@ -97,3 +97,4 @@ void consume_buffer(std::vector<uint8_t>& buffer, size_t len) {
     if (len > buffer.size()) { len = buffer.size(); }
     buffer.erase(buffer.begin(), buffer.begin() + len);
 }
+
