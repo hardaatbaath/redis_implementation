@@ -20,7 +20,7 @@ struct HashMap {
 
 // HashMap functions
 HashNode *hm_lookup(HashMap *hmap, HashNode *key, bool (*eq)(HashNode *, HashNode *));
- void   hm_insert(HashMap *hmap, HashNode *node);
+void   hm_insert(HashMap *hmap, HashNode *node);
 HashNode *hm_delete(HashMap *hmap, HashNode *key, bool (*eq)(HashNode *, HashNode *));
 void   hm_clear(HashMap *hmap);
 size_t hm_size(HashMap *hmap);
