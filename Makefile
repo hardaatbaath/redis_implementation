@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX ?= g++
-CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP
+CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -I$(SRC_DIR)
 LDFLAGS ?=
 
 # Directories
@@ -9,8 +9,16 @@ BUILD_DIR := build
 BIN_DIR := bin
 
 # Sources and objects
-SERVER_OBJS := $(BUILD_DIR)/server.o $(BUILD_DIR)/utils.o $(BUILD_DIR)/hashtable.o
-CLIENT_OBJS := $(BUILD_DIR)/client.o $(BUILD_DIR)/utils.o
+SERVER_OBJS := $(BUILD_DIR)/server.o \
+               $(BUILD_DIR)/sys.o \
+               $(BUILD_DIR)/protocol.o \
+               $(BUILD_DIR)/netio.o \
+               $(BUILD_DIR)/commands.o \
+               $(BUILD_DIR)/hashtable.o
+
+CLIENT_OBJS := $(BUILD_DIR)/client.o \
+               $(BUILD_DIR)/sys.o \
+               $(BUILD_DIR)/protocol.o
 
 # Phony alias so `make build` works
 .PHONY: build
@@ -25,8 +33,26 @@ all: $(BIN_DIR)/server $(BIN_DIR)/client
 dirs:
 	mkdir -p $(BUILD_DIR) $(BIN_DIR)
 
-# Compile and link
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | dirs
+# Compile rules for different source locations
+$(BUILD_DIR)/server.o: $(SRC_DIR)/server.cpp | dirs
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/client.o: $(SRC_DIR)/client.cpp | dirs
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/sys.o: $(SRC_DIR)/core/sys.cpp | dirs
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/protocol.o: $(SRC_DIR)/net/protocol.cpp | dirs
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/netio.o: $(SRC_DIR)/net/netio.cpp | dirs
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/commands.o: $(SRC_DIR)/storage/commands.cpp | dirs
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/hashtable.o: $(SRC_DIR)/storage/hashtable.cpp | dirs
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BIN_DIR)/server: $(SERVER_OBJS) | dirs

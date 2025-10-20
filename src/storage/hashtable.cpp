@@ -1,13 +1,11 @@
-#include <assert.h>       // assert
-#include <stddef.h>       // size_t
-#include <stdlib.h>       // calloc(), free()
+// C stdlib
+#include <assert.h>       // assert (h_init)
+#include <stddef.h>       // size_t (interfaces)
+#include <stdlib.h>       // calloc(), free() (h_init, hm_help_rehashing, hm_clear)
 
-
-#include "hashtable.h"
-#include "constants.h"
-
-
-
+// local
+#include "hashtable.h"         // HashNode/HashTable/HashMap declarations
+#include "../core/constants.h" // k_max_load_factor, k_rehashing_work
 /**
  * Initialize the hash table, give memory for "size" number of HashNode pointers
 */
