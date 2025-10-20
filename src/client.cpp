@@ -23,7 +23,7 @@
  * Send argv-framed request to the server
  * payload = [num_args:u32][len:u32 arg0][bytes...][len:u32 arg1][bytes...] ...
  * frame   = [payload_len:u32][payload_bytes]
- */
+*/
 static int32_t send_request(int fd, const std::vector<std::string> &cmd){
     // log what we are about to send
     std::string command;
@@ -56,7 +56,7 @@ static int32_t send_request(int fd, const std::vector<std::string> &cmd){
 
 /**
  * Read a response from the server
- */
+*/
 static int32_t read_response(int fd){
     // Read frame header (payload length)
     std::vector<uint8_t> rbuf(4);
@@ -98,7 +98,7 @@ static int32_t read_response(int fd){
  * Receive a message from the server
  * Close the connection
  * Return 0
- */
+*/
 int main() {//int argc, char *argv[]) {
 
     // create a socket

@@ -1,9 +1,10 @@
 // C stdlib
-#include <stdint.h>      // uint8_t, uint32_t
-#include <string.h>      // memcpy
-#include <stdio.h>       // printf
-#include <errno.h>       // errno
 #include <assert.h>      // assert
+#include <cstddef>
+#include <errno.h>       // errno
+#include <stdint.h>      // uint8_t, uint32_t
+#include <stdio.h>       // printf
+#include <string.h>      // memcpy
 
 // POSIX / system (socket API, inet helpers, read/write, poll)
 #include <sys/types.h>   // ssize_t
@@ -16,13 +17,15 @@
 // C++ stdlib
 #include <string>        // std::string
 #include <vector>        // std::vector
-#include <map>           // std::map
 
 // local
 #include "utils.h"
 #include "constants.h"
+#include "hashtable.h"
 
-static std::map<std::string, std::string> keyValueStore;
+#define container_of(ptr, T, member) \
+    ((T *) ((char*) ptr - offsetof(T, member)))
+
 
 struct Connection {
     int socket_fd = -1; // listening/accepted socket fd, by default set to -1
@@ -48,10 +51,50 @@ enum ResponseStatus {
     RES_ERR = 500,
 };
 
+// Top level hashtable for the server
+static struct  {
+    HashMap db;
+} server_data;
+
+// KV pair storage for the server
+struct Entry {
+    struct HashNode node;    // embedded hashnode node
+    std::string key;
+    std::string value;
+};
+
+// Lookup key for the server
+struct LookupKey {
+    HashNode node;
+    std::string key;
+};
+
+/**
+ * Equality comparitor for 'struct Entry'
+ * container_of is used to recover the address of a parent struct from the address of one of its members. 
+*/ 
+static bool entry_equals(HashNode *lhs, HashNode *rhs) {
+    struct Entry *le = container_of(lhs, struct Entry, node);
+    struct Entry *re = container_of(rhs, struct Entry, node);
+    return le->key == re->key;
+}
+
+/**
+ * FNV hash function
+*/
+static uint64_t string_hash(const uint8_t *data, size_t len){
+    uint32_t base = 0x811C9DC5; // FNV-1a offset basis, Decimal: 2166136261
+    uint32_t prime = 0x1000193; // FNV-1a prime, Decimal: 16777619
+
+    for (size_t i = 0; i < len; i++) {
+        base = (base + data[i]) * prime;
+    }
+    return base;
+}
 
 /**
  * Handle the client connection
- */
+*/
 static Connection *handle_accept(int listen_fd) {
     //accept the connection
     struct sockaddr_in client_addr = {};
@@ -85,7 +128,7 @@ static Connection *handle_accept(int listen_fd) {
 
 /**
  * Read the header for the request (size or total number of requests)
- */
+*/
 static bool read_header(const uint8_t *&cursor, const uint8_t *end, uint32_t &value) {
     // Check if there is enough data to read the header`
     if (end - cursor < 4) { return false; }
@@ -99,7 +142,7 @@ static bool read_header(const uint8_t *&cursor, const uint8_t *end, uint32_t &va
 
 /**
  * Read the request
- */
+*/
 static bool read_string(const uint8_t *&cursor, const uint8_t *end, uint32_t len, std::string &output) {
     // Check if there is enough data to read the string
     if (end - cursor < len) { return false; }
@@ -116,7 +159,7 @@ static bool read_string(const uint8_t *&cursor, const uint8_t *end, uint32_t len
  *      +----------+-----+------+-----+------+-----+-----+------+
  *      | num_args | len | cmd1 | len | cmd2 | ... | len | cmdn |
  *      +----------+-----+------+-----+------+-----+-----+------+
- */
+*/
 static int32_t parse_request(const uint8_t *data, size_t size, std::vector<std::string> &cmd) {
     const uint8_t *cursor = data;
     const uint8_t *end = cursor + size;
@@ -145,10 +188,103 @@ static int32_t parse_request(const uint8_t *data, size_t size, std::vector<std::
     return 0;
 }
 
+/**
+ * Set the value of the key from the hash table
+*/
+static void set_key(std::vector<std::string> &cmd, Response &resp){
+    // A dummy 'Entry' just for the lookup
+    Entry key;
+    key.key.swap(cmd[1]);
+    key.node.hash_code = string_hash((uint8_t*) key.key.data(), key.key.size());
+
+    // Hashtable Lookup
+    HashNode *node = hm_lookup(&server_data.db, &key.node, &entry_equals);
+    if(node) {
+        // Key already exists, update the value
+        container_of(node, Entry, node)->value.swap(cmd[2]);
+    }
+    else {
+        // Key does not exist, create a new entry
+        Entry *key_entry = new Entry();
+        key_entry->key.swap(key.key);
+        key_entry->value.swap(cmd[2]);
+        key_entry->node.hash_code = key.node.hash_code;
+        hm_insert(&server_data.db, &key_entry->node);
+    }
+    resp.status = RES_OK;
+}
+
+/**
+ * Get the value of the key from the hash table
+*/
+static void get_key(std::vector<std::string> &cmd, Response &resp){
+    // A dummy 'Entry' just for the lookup
+    Entry key;
+    key.key.swap(cmd[1]);    // swap is more memory optimised, pointers are swapped instead of creating new overhead of assignment
+    key.node.hash_code = string_hash((uint8_t *)key.key.data(), key.key.size());
+
+    // Hashtable lookup
+    HashNode *node = hm_lookup(&server_data.db, &key.node, &entry_equals);
+    if (!node){
+        resp.status = RES_NX;
+        return;
+    }
+    
+    // Copy the values
+    const std:: string &val = container_of(node, Entry, node)->value;      // Returns the value of the HashNode
+    assert(val.size() <= k_max_msg);
+    resp.status = RES_OK;
+    resp.data.assign(val.begin(), val.end());
+}
+
+/**
+ * Delete the value of the key from the hash table
+*/
+static void del_key(std::vector<std::string> &cmd, Response &resp){
+    Entry key;
+    key.key.swap(cmd[1]);
+    key.node.hash_code = string_hash((uint8_t*) key.key.data(), key.key.size());
+
+    // Hashtable delete
+    HashNode *node = hm_delete(&server_data.db, &key.node, &entry_equals);
+    if (node){
+        // Key found, delete the entry via pointer to the entry
+        delete container_of(node, Entry, node);
+        resp.status = RES_OK;
+    }
+    else {
+        // Key not found, return not found
+        resp.status = RES_NX;
+    }
+}
+
+/**
+ * Get all the keys from the hash table
+*/
+static void all_keys(std::vector<std::string> &cmd, Response &resp){
+    bool first = true;
+    // Iterate through the buckets in the newer table
+    for (size_t i = 0; i <= server_data.db.newer.mask; ++i) {
+        // Iterate through the linked list in the bucket
+        for (HashNode *node = server_data.db.newer.tab[i]; node; node = node->next) {
+            // Get the entry
+            const Entry *entry = container_of(node, Entry, node);
+            // Add the key and value to the response
+            const std::string line = (first ? "" : "\n") + entry->key + " " + entry->value;
+            first = false;
+            // Append the line to the response
+            resp.data.insert(resp.data.end(), line.begin(), line.end());
+        }
+    }
+    resp.status = RES_OK;
+}
+
 /** 
  * Run one request
- */
+*/
 static void run_request(std::vector<std::string> &cmd, Response &resp) {
+    resp.status = RES_OK;        // Successfully executed command
+    
     // ping request
     if (cmd.size() == 1 && cmd[0] == "ping") {
         const uint8_t *p = (const uint8_t*)"pong";
@@ -157,47 +293,34 @@ static void run_request(std::vector<std::string> &cmd, Response &resp) {
 
     // get request
     else if (cmd.size() == 2 && cmd[0] == "get") {
-        auto it = keyValueStore.find(cmd[1]);
-        if (it == keyValueStore.end()) {
-            resp.status = RES_NX;        // Not Found command
-            return;
-        }
-        const std::string &value = it->second;
-        resp.data.assign(value.begin(), value.end());
+        get_key(cmd, resp);
     }
 
     // set request
     else if (cmd.size() == 3 && cmd[0] == "set") {
-        keyValueStore[cmd[1]].swap(cmd[2]);    // swap the value of the key
+        set_key(cmd, resp);
     }
 
     // del request
     else if (cmd.size() == 2 && cmd[0] == "del") {
-        keyValueStore.erase(cmd[1]);
+        del_key(cmd, resp);
     }
 
     // all keys request
     else if (cmd.size() == 2 && cmd[0] == "all" && cmd[1] == "keys") {
-        bool first = true;
-        for (const auto &entry : keyValueStore) {
-            const std::string &key = (first ? "" : "\n") + entry.first + " " + entry.second; // add a newline if not the first entry
-            first = false;
-            resp.data.insert(resp.data.end(), key.begin(), key.end());
-        }
+        all_keys(cmd, resp);
     }
 
     // unknown request
     else {
-        resp.status = RES_ERR;        // unknown command
+        resp.status = RES_ERR;     // Error in executing command
         return;
     }
-
-    resp.status = RES_OK;        // OK command
 }
 
 /**
  * Generate the response
- */
+*/
 static void generate_response(const Response &resp, std::vector<uint8_t> &out) {
     // 4 bytes for the status code + the size of the data
     uint32_t resp_len = 4 + (uint32_t)resp.data.size();
@@ -214,7 +337,7 @@ static void generate_response(const Response &resp, std::vector<uint8_t> &out) {
 
 /**
  * Process one request when there is enough data
- */
+*/
 static bool handle_one_request(Connection *conn) {
     // try to parse the protocol: message header
     if (conn->incoming.size() < 4) { return false; } // we don't even know the size of the message
@@ -257,7 +380,7 @@ static bool handle_one_request(Connection *conn) {
 
 /**
  * Application callback when the socket is writable
- */
+*/
 static void handle_write(Connection *conn) {
     assert(!conn->outgoing.empty()); // check if there is any outgoing data
 
@@ -286,7 +409,7 @@ static void handle_write(Connection *conn) {
  * Read the request and parse it
  * Generate the response
  * Write the response to the socket
- */
+*/
 static void handle_read(Connection *conn) {
     // read the request [4b header + payload]
     uint8_t buf[64 * 1024]; // 64KB buffer
@@ -338,7 +461,7 @@ static void handle_read(Connection *conn) {
  * This function runs an infinite event loop and only exits on fatal error.
  * 
  * Return 0 on successful execution.
- */
+*/
 int main() {
     // the listening socket
     int listen_fd = socket(AF_INET, SOCK_STREAM, 0);

@@ -9,7 +9,7 @@ BUILD_DIR := build
 BIN_DIR := bin
 
 # Sources and objects
-SERVER_OBJS := $(BUILD_DIR)/server.o $(BUILD_DIR)/utils.o
+SERVER_OBJS := $(BUILD_DIR)/server.o $(BUILD_DIR)/utils.o $(BUILD_DIR)/hashtable.o
 CLIENT_OBJS := $(BUILD_DIR)/client.o $(BUILD_DIR)/utils.o
 
 # Phony alias so `make build` works
