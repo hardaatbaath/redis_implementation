@@ -17,21 +17,21 @@
 
 /**
  * Print a message to stderr
- */
+*/
 void msg(const char* message) {
     fprintf(stderr, "%s\n", message);
 }
 
 /**
  * Print an error message to stderr
- */
+*/
 void msg_error(const char* message) {
     fprintf(stderr, "[ERROR] %s\n", message);
 }
 
 /**
  * Print an error message to stderr and exit the program
- */
+*/
 [[noreturn]] void die(const char* context) {
     const int currentErrno = errno;
     fprintf(stderr, "[%d] %s\n", currentErrno, context);
@@ -40,7 +40,7 @@ void msg_error(const char* message) {
 
 /**
  * Set the file descriptor to non-blocking mode
- */
+*/
 void fd_set_nb(int fd) {
     errno = 0;
     int flags = fcntl(fd, F_GETFL, 0);
@@ -56,7 +56,7 @@ void fd_set_nb(int fd) {
  * Read exactly n bytes from the file descriptor
  * size_t is unsigned int, used for memory allocation
  * ssize_t is signed int, used for file descriptor
- */
+*/
 int32_t read_full(int fd, char* buf, size_t n){
     while (n > 0){
         ssize_t rv = read(fd, buf, n); // possible that we get less than n bytes
@@ -73,7 +73,7 @@ int32_t read_full(int fd, char* buf, size_t n){
 
 /**
  * Write exactly n bytes to the file descriptor
- */
+*/
 int32_t write_all(int fd, char* buf, size_t n){
     while (n > 0){
         ssize_t rv = write(fd, buf, n); // possible that we write less than n bytes
