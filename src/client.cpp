@@ -10,15 +10,16 @@
 #include <netinet/in.h>  // sockaddr_in
 #include <sys/socket.h>  // socket, connect, bind
 
-// local
-#include "core/sys.h"        // msg, die, append_buffer, read_all, write_all
-#include "core/constants.h"  // k_max_msg
-
 // C++ stdlib
 #include <string>        // std::string
 #include <vector>        // std::vector
 #include <sstream>       // std::istringstream
 #include <iostream>      // std::getline
+
+// local
+#include "core/sys.h"        // msg, die, append_buffer
+#include "net/clientnet.h"   // read_all, write_all
+#include "core/constants.h"  // k_max_msg
 
 /**
  * Send argv-framed request to the server
@@ -70,26 +71,19 @@ static int32_t read_response(int fd){
     }
 
     uint32_t payload_len = 0;
-    memcpy(&payload_len, rbuf.data(), 4);
-    if (payload_len > k_max_msg || payload_len < 4) { msg("bad response length"); return -1; }
+    memcpy(&payload_len, rbuf.data(), 4); // Assuming little endian
+    if (payload_len > k_max_msg) { msg("bad response length"); return -1; }
 
+    // Resize buffer to hold header + payload, then read payload
     rbuf.resize(4 + payload_len);
     err = read_all(fd, (char*)rbuf.data() + 4, payload_len);
     if (err) { msg("read() error"); return err; }
 
-    // Parse payload: [status:u32][data...]
-    uint32_t status = 0;
-    memcpy(&status, rbuf.data() + 4, 4);
-    size_t data_len = payload_len - 4;
-    const uint8_t *data_ptr = rbuf.data() + 8;
+    // Parse the response
+    int32_t rv = print_response((uint8_t *) &rbuf[4], payload_len);
+    if (rv > 0 && (uint32_t)rv != payload_len) { msg("bad response"); return -1; }
 
-    fprintf(stderr, "[client] status: %u, data_len: %zu\n", (unsigned)status, data_len);
-    if (data_len > 0) {
-        std::vector<uint8_t> tmp(data_ptr, data_ptr + data_len);
-        tmp.push_back('\0');
-        printf("%s\n", (char*)tmp.data());
-    }
-    return 0;
+    return rv;
 }
 
 /**
