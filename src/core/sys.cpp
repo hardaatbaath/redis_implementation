@@ -53,12 +53,50 @@ void fd_set_nb(int fd) {
 }
 
 // Buffer utilities
-void append_buffer(std::vector<uint8_t>& buffer, const uint8_t* data, size_t len) {
+void append_buffer(Buffer& buffer, const uint8_t* data, size_t len) {
     buffer.insert(buffer.end(), data, data + len);
 }
 
-void consume_buffer(std::vector<uint8_t>& buffer, size_t len) {
+void consume_buffer(Buffer& buffer, size_t len) {
     if (len > buffer.size()) { len = buffer.size(); }
     buffer.erase(buffer.begin(), buffer.begin() + len);
 }
 
+// Serialisation Buffer utilities
+void append_buffer_u8(Buffer& buffer, uint8_t value) {
+    buffer.push_back(value);
+}
+
+void append_buffer_u32(Buffer& buffer, uint32_t value) {
+    append_buffer(buffer, (const uint8_t*)&value, 4);
+}
+
+void append_buffer_i64(Buffer& buffer, int64_t value) {
+    append_buffer(buffer, (const uint8_t*)&value, 8);
+}
+
+void append_buffer_f64(Buffer& buffer, double value) {
+    append_buffer(buffer, (const uint8_t*)&value, 8);
+}
+
+void append_buffer_bool(Buffer& buffer, bool value) {
+    append_buffer(buffer, (const uint8_t*)&value, 1);
+}
+
+void append_buffer_string(Buffer& buffer, const std::string& value) {
+    append_buffer_u32(buffer, value.size());
+    append_buffer(buffer, (const uint8_t*)value.data(), value.size());
+}
+
+void append_buffer_array(Buffer& buffer, const std::vector<uint8_t>& value) {
+    append_buffer_u32(buffer, value.size());
+    append_buffer(buffer, value.data(), value.size());
+}
+
+void append_buffer_map(Buffer& buffer, const std::map<uint8_t, uint8_t>& value) {
+    append_buffer_u32(buffer, value.size());
+    for (const auto& item : value) {
+        append_buffer_u8(buffer, item.first);
+        append_buffer_u8(buffer, item.second);
+    }
+}

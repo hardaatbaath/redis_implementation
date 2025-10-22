@@ -8,6 +8,7 @@
 // local
 #include "hashtable.h" // HashNode, HashMap, hm_*
 #include "../net/protocol.h"  // Response
+#include "../core/sys.h"      // Buffer
 
 // KV pair storage for the server
 struct Entry {
@@ -29,13 +30,14 @@ bool entry_equals(HashNode *lhs, HashNode *rhs);
 uint64_t string_hash(const uint8_t *data, size_t len);
 
 // Request handlers
-void set_key(std::vector<std::string> &cmd, Response &resp);
-void get_key(std::vector<std::string> &cmd, Response &resp);
-void del_key(std::vector<std::string> &cmd, Response &resp);
-void all_keys(std::vector<std::string> &, Response &resp);
+void set_key(std::vector<std::string> &cmd, Buffer &resp);
+void get_key(std::vector<std::string> &cmd, Buffer &resp);
+void del_key(std::vector<std::string> &cmd, Buffer &resp);
+void all_keys(std::vector<std::string> &, Buffer &resp);
+void do_keys(std::vector<std::string> &, Buffer &resp);
 
 /** 
  * Run one request
 */
-void run_request(std::vector<std::string> &cmd, Response &resp);
+void run_request(std::vector<std::string> &cmd, Buffer &resp);
 
