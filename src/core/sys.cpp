@@ -52,42 +52,6 @@ void fd_set_nb(int fd) {
     if (errno) { die("fcntl() write error"); return; }
 }
 
-/**
- * Read exactly n bytes from the file descriptor
- * size_t is unsigned int, used for memory allocation
- * ssize_t is signed int, used for file descriptor
-*/
-int32_t read_all(int fd, char* buf, size_t n){
-    while (n > 0){
-        ssize_t rv = read(fd, buf, n); // possible that we get less than n bytes
-        if (rv <= 0) {
-            return -1; // error or unexpected EOF happened
-        }
-        
-        assert((size_t)rv <= n);
-        n -= (size_t)rv;
-        buf += rv;
-    }
-    return 0;
-}
-
-/**
- * Write exactly n bytes to the file descriptor
-*/
-int32_t write_all(int fd, char* buf, size_t n){
-    while (n > 0){
-        ssize_t rv = write(fd, buf, n); // possible that we write less than n bytes
-        if (rv <= 0) {
-            return -1; // error in writing
-        }
-
-        assert((size_t)rv <= n);
-        n -= (size_t)rv;
-        buf += rv;
-    }
-    return 0;
-}
-
 // Buffer utilities
 void append_buffer(std::vector<uint8_t>& buffer, const uint8_t* data, size_t len) {
     buffer.insert(buffer.end(), data, data + len);
