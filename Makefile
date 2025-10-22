@@ -14,11 +14,14 @@ SERVER_OBJS := $(BUILD_DIR)/server.o \
                $(BUILD_DIR)/protocol.o \
                $(BUILD_DIR)/netio.o \
                $(BUILD_DIR)/commands.o \
-               $(BUILD_DIR)/hashtable.o
+               $(BUILD_DIR)/hashtable.o \
+			   $(BUILD_DIR)/serialize.o
 
 CLIENT_OBJS := $(BUILD_DIR)/client.o \
                $(BUILD_DIR)/sys.o \
-               $(BUILD_DIR)/protocol.o
+               $(BUILD_DIR)/protocol.o \
+			   $(BUILD_DIR)/clientnet.o \
+			   $(BUILD_DIR)/serialize.o
 
 # Phony alias so `make build` works
 .PHONY: build
@@ -53,6 +56,12 @@ $(BUILD_DIR)/commands.o: $(SRC_DIR)/storage/commands.cpp | dirs
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/hashtable.o: $(SRC_DIR)/storage/hashtable.cpp | dirs
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/serialize.o: $(SRC_DIR)/net/serialize.cpp | dirs
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/clientnet.o: $(SRC_DIR)/net/clientnet.cpp | dirs
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BIN_DIR)/server: $(SERVER_OBJS) | dirs

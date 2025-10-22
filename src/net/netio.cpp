@@ -15,6 +15,37 @@
 #include "../storage/commands.h" // run_request
 #include "../core/constants.h"  // k_max_msg
 #include "../core/sys.h"        // msg_error, append_buffer, consume_buffer
+#include "../net/serialize.h"   // out_err, append_buffer_u32
+
+/**
+ * Begin the response
+*/
+static void response_begin(Buffer &out, size_t *header) {
+    *header = out.size();       // messege header position
+    append_buffer_u32(out, 0);     // reserve space
+}
+
+/**
+ * Get the size of the response
+*/
+static size_t response_size(Buffer &out, size_t header) {
+    return out.size() - header - 4;
+}
+
+/**
+ * End the response
+*/
+static void response_end(Buffer &out, size_t header) {
+    size_t msg_size = response_size(out, header);
+    if (msg_size > k_max_msg) {
+        out.resize(header + 4);
+        out_err(out, ERR_TOO_BIG, "response is too big.");
+        msg_size = response_size(out, header);
+    }
+    // message header
+    uint32_t len = (uint32_t)msg_size;
+    memcpy(&out[header], &len, 4);
+}
 
 /**
  * Process one request when there is enough data
@@ -42,18 +73,17 @@ bool handle_one_request(Connection *conn) {
         return false;
     }
 
-    Response resp;
-    // Log parsed command
-    std::string command;
-    for (size_t i = 0; i < cmd.size(); i++) {
-        command = command + cmd[i] + (i < cmd.size() - 1 ? " " : "");
-    }
-    fprintf(stderr, "[server] command: '%s'\n", command.c_str());
+    // Begin the response
+    size_t header = 0;
+    response_begin(conn->outgoing, &header);
 
     // Run the request
-    run_request(cmd, resp);
-    // Generate the response
-    generate_response(resp, conn->outgoing);
+    run_request(cmd, conn->outgoing);
+    
+
+    // End the response
+    response_end(conn->outgoing, header);
+
     // Consume the incoming data
     consume_buffer(conn->incoming, 4 + frame_len);
     return true;
