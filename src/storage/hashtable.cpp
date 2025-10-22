@@ -54,6 +54,15 @@ static HashNode *h_detach(HashTable *ht, HashNode **node) {
     return target;
 }
 
+static bool h_foreach(HashTable *ht, bool (*f) (HashNode *, void *), void *args) {
+    for (size_t i = 0; i <= ht->mask; i++) {
+        for (HashNode *node = ht->tab[i]; node; node = node->next) {
+            if (!f(node, args)) { return false; }
+        }
+    }
+    return true;
+}
+
 /**
  * Trigger the rehashing of the hash table
 */
@@ -152,4 +161,8 @@ void hm_clear(HashMap *hmap) {
 */
 size_t hm_size(HashMap *hmap) {
     return hmap->newer.size + hmap->older.size;
+}
+
+void hm_foreach(HashMap *hmap, bool (*f)(HashNode *, void *), void *args) {
+    h_foreach(&hmap->newer, f, args) && h_foreach(&hmap->older, f, args);
 }
