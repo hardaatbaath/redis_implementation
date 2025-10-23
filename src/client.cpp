@@ -28,13 +28,6 @@
  * frame   = [payload_len:u32][payload_bytes]
 */
 static int32_t send_request(int fd, const std::vector<std::string> &cmd){
-    // log what we are about to send
-    std::string command;
-    for (size_t i = 0; i < cmd.size(); i++) {
-        command = command + cmd[i] + (i < cmd.size() - 1 ? " " : "");
-    }
-    fprintf(stderr, "[client] command: '%s'\n", command.c_str());
-
     std::vector<uint8_t> payload;
     uint32_t num_args = (uint32_t)cmd.size();
 
@@ -186,7 +179,7 @@ int main() {//int argc, char *argv[]) {
 
         // read the response from the server
         err = read_response(fd);
-        if (err) { 
+        if (err < 0) { 
             msg("read() error"); 
             goto L_DONE; 
         }

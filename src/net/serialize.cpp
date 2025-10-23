@@ -102,7 +102,7 @@ int32_t print_response(const uint8_t *data, size_t size){
             {
                 uint32_t len = 0;
                 memcpy(&len, &data[1], 4);
-                printf("array length: %d: ", len);
+                // printf("array length: %d\n", len);
 
                 size_t arr_bytes = 1 + 4;
                 for (uint32_t i = 0; i < len; i++) {
@@ -111,7 +111,7 @@ int32_t print_response(const uint8_t *data, size_t size){
                     arr_bytes += rv;
                 }
                 
-                printf("array end\n");
+                // printf("array end\n");
                 return arr_bytes;
             }
 
