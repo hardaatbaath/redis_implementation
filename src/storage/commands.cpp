@@ -111,8 +111,10 @@ void del_key(std::vector<std::string> &cmd, Buffer &resp){
 */
 static bool cb_keys(HashNode *node, void *arg) {
     Buffer &resp = *(Buffer *)arg;
-    const std::string &key = container_of(node, Entry, node)->key;
-    out_str(resp, key.data(), key.size());
+    const Entry *entry = container_of(node, Entry, node);
+    // Emit one array element as a nested array: key : value
+    std::string kV_pair = entry->key + " : " + entry->value;
+    out_str(resp, kV_pair.data(), kV_pair.size());
     return true;
 }
 
@@ -149,7 +151,7 @@ void run_request(std::vector<std::string> &cmd, Buffer &resp) {
     }
 
     // all keys request
-    else if (cmd.size() == 1 && cmd[0] == "keys") {
+    else if (cmd.size() == 2 && cmd[0] == "all" && cmd[1] == "keys") {
         return all_keys(cmd, resp);
     }
 

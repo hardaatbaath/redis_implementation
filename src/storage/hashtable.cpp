@@ -55,6 +55,9 @@ static HashNode *h_detach(HashTable *ht, HashNode **node) {
 }
 
 static bool h_foreach(HashTable *ht, bool (*f) (HashNode *, void *), void *args) {
+    // Gracefully handle uninitialized tables
+    if (!ht->tab) { return true; }
+
     for (size_t i = 0; i <= ht->mask; i++) {
         for (HashNode *node = ht->tab[i]; node; node = node->next) {
             if (!f(node, args)) { return false; }

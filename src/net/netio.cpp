@@ -69,8 +69,13 @@ bool handle_one_request(Connection *conn) {
     // Parse the request and apply application logic
     std::vector<std::string> cmd;
     if (parse_request(request, frame_len, cmd) < 0) {
-        conn->want_close = true;
-        return false;
+        // Malformed request: respond with an error instead of closing the connection
+        size_t header = 0;
+        response_begin(conn->outgoing, &header);
+        out_err(conn->outgoing, ERR_UNKNOWN, "malformed request");
+        response_end(conn->outgoing, header);
+        consume_buffer(conn->incoming, 4 + frame_len);
+        return true;
     }
 
     // Begin the response
@@ -79,7 +84,6 @@ bool handle_one_request(Connection *conn) {
 
     // Run the request
     run_request(cmd, conn->outgoing);
-    
 
     // End the response
     response_end(conn->outgoing, header);
