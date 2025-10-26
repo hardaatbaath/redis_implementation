@@ -8,9 +8,7 @@
 #include "serialize.h" // TAG_NIL, TAG_ERR, TAG_STR, TAG_INT, TAG_DBL, TAG_BOOL, TAG_ARR, TAG_MAP, print_response
 #include "../core/sys.h" // msg, append_buffer_u8, append_buffer_u32, append_buffer_i64, append_buffer_f64, append_buffer_bool, append_buffer_string, append_buffer_array, append_buffer_map
 
-/**
- * Print the response
-*/
+// Print the response
 int32_t print_response(const uint8_t *data, size_t size){
     if (size < 1) { msg("bad response"); return -1; }
 
@@ -124,7 +122,7 @@ int32_t print_response(const uint8_t *data, size_t size){
             {
                 uint32_t len = 0;
                 memcpy(&len, &data[1], 4);
-                printf("map length: %d: ", len);
+                // printf("map length: %d: ", len);
 
                 size_t map_bytes = 1 + 4;
                 for (uint32_t i = 0; i < len; i++) {

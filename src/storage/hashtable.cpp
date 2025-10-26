@@ -6,9 +6,8 @@
 // local
 #include "hashtable.h"         // HashNode/HashTable/HashMap declarations
 #include "../core/constants.h" // k_max_load_factor, k_rehashing_work
-/**
- * Initialize the hash table, give memory for "size" number of HashNode pointers
-*/
+
+// Initialize the hash table, give memory for "size" number of HashNode pointers
 static void h_init(HashTable *ht, size_t size) {
     assert (size > 0 && (size & (size - 1)) == 0);                          // size must be a power of 2, modulo is expensive
     ht->tab = (HashNode **)calloc(size, sizeof(HashNode *));   // give memory for "size" number of HashNode pointers
@@ -33,9 +32,7 @@ static HashNode **h_lookup(HashTable *ht, HashNode *key, bool (*eq)(HashNode *, 
     return NULL; // key not found
 }
 
-/**
- * Insert a node into the hash table
-*/
+// Insert a node into the hash table
 static void h_insert(HashTable *ht, HashNode *node) {
     size_t pos = node->hash_code & ht->mask;     // node->hash_code & (table_size - 1); mask = table_size - 1 (when size is power of 2)
     HashNode *next = ht->tab[pos];               // get the head of the chain
@@ -44,9 +41,7 @@ static void h_insert(HashTable *ht, HashNode *node) {
     ht->size++;                                  // increment the number of keys in the table
 }
 
-/**
- * Detach a node from the hash table
-*/
+// Detach a node from the hash table
 static HashNode *h_detach(HashTable *ht, HashNode **node) {
     HashNode *target = *node;   // Get the node to detach
     *node = target->next;       // Update the incoming pointer to the target's next node
@@ -66,9 +61,7 @@ static bool h_foreach(HashTable *ht, bool (*f) (HashNode *, void *), void *args)
     return true;
 }
 
-/**
- * Trigger the rehashing of the hash table
-*/
+// Trigger the rehashing of the hash table
 static void hm_trigger_rehash(HashMap *hmap) {
     assert(hmap->older.tab == NULL);
     hmap->older = hmap->newer;                                 // (newer, older) <- (new_table, newer)
@@ -76,9 +69,7 @@ static void hm_trigger_rehash(HashMap *hmap) {
     hmap->migration_pos = 0;
 }
 
-/**
- * Help migrate the keys from the older table to the newer table
-*/
+// Help migrate the keys from the older table to the newer table
 static void hm_help_rehashing(HashMap *hmap) {
     size_t work = 0;
     while (work < k_rehashing_work && hmap->older.size > 0) {
@@ -102,9 +93,7 @@ static void hm_help_rehashing(HashMap *hmap) {
     }
 }
 
-/**
- * Lookup a node in the hash table via hashmap
-*/
+// Lookup a node in the hash table via hashmap
 HashNode *hm_lookup(HashMap *hmap, HashNode *key, bool (*eq)(HashNode *, HashNode *)) {   
     // Help migrate the keys
     hm_help_rehashing(hmap);
@@ -117,9 +106,7 @@ HashNode *hm_lookup(HashMap *hmap, HashNode *key, bool (*eq)(HashNode *, HashNod
     return from? *from : NULL;
 }
 
-/**
- * Insert a node into the hash table via hashmap
-*/
+// Insert a node into the hash table via hashmap
 void hm_insert(HashMap *hmap, HashNode *node) {
     // If the newer table is not initialized, initialize it with a size of 4
     if (!hmap->newer.tab) { h_init(&hmap->newer, 4); }
@@ -137,9 +124,7 @@ void hm_insert(HashMap *hmap, HashNode *node) {
     hm_help_rehashing(hmap);
 }
 
-/**
- * Delete a node from the hash table via hashmap
-*/
+// Delete a node from the hash table via hashmap
 HashNode *hm_delete(HashMap *hmap, HashNode *key, bool (*eq)(HashNode *, HashNode *)) {
     hm_help_rehashing(hmap);
 
@@ -150,18 +135,14 @@ HashNode *hm_delete(HashMap *hmap, HashNode *key, bool (*eq)(HashNode *, HashNod
     return NULL;
 }
 
-/**
- * Clear the hash table via hashmap
-*/
+// Clear the hash table via hashmap
 void hm_clear(HashMap *hmap) {
     free(hmap->newer.tab);
     free(hmap->older.tab);
     *hmap = HashMap{};
 }
 
-/**
- * Get the size of the hash table via hashmap
-*/
+// Get the size of the hash table via hashmap
 size_t hm_size(HashMap *hmap) {
     return hmap->newer.size + hmap->older.size;
 }

@@ -50,9 +50,7 @@ static int32_t send_request(int fd, const std::vector<std::string> &cmd){
     return write_all(fd, (char*) frame.data(), frame.size());
 }
 
-/**
- * Read a response from the server
-*/
+// Read a response from the server
 static int32_t read_response(int fd){
     // Read frame header (payload length)
     std::vector<uint8_t> rbuf(4);

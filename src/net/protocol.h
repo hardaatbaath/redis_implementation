@@ -2,6 +2,7 @@
 
 // C stdlib
 #include <stdint.h>      // uint8_t, uint32_t
+#include <string.h>      // memcpy (inline helpers)
 #include <string>        // std::string (read_string)
 #include <vector>        // std::vector (parse_request)
 
@@ -17,8 +18,19 @@ enum ResponseStatus {
 };
 
 // protocol helpers
-bool read_header(const uint8_t *&cursor, const uint8_t *end, uint32_t &value);
-bool read_string(const uint8_t *&cursor, const uint8_t *end, uint32_t len, std::string &output);
+inline bool read_header(const uint8_t *&cursor, const uint8_t *end, uint32_t &value) {
+    if (end - cursor < 4) { return false; }
+    memcpy(&value, cursor, 4);
+    cursor += 4;
+    return true;
+}
+
+inline bool read_string(const uint8_t *&cursor, const uint8_t *end, uint32_t len, std::string &output) {
+    if (end - cursor < len) { return false; }
+    output = std::string((char*)cursor, len);
+    cursor += len;
+    return true;
+}
 int32_t parse_request(const uint8_t *data, size_t size, std::vector<std::string> &cmd);
 void generate_response(const Response &resp, std::vector<uint8_t> &out); // kept original name for compatibility
 

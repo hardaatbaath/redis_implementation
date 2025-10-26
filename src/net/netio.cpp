@@ -17,24 +17,18 @@
 #include "../core/sys.h"        // msg_error, append_buffer, consume_buffer
 #include "../net/serialize.h"   // out_err, append_buffer_u32
 
-/**
- * Begin the response
-*/
+// Begin the response
 static void response_begin(Buffer &out, size_t *header) {
     *header = out.size();       // messege header position
     append_buffer_u32(out, 0);     // reserve space
 }
 
-/**
- * Get the size of the response
-*/
+// Get the size of the response
 static size_t response_size(Buffer &out, size_t header) {
     return out.size() - header - 4;
 }
 
-/**
- * End the response
-*/
+// End the response
 static void response_end(Buffer &out, size_t header) {
     size_t msg_size = response_size(out, header);
     if (msg_size > k_max_msg) {
@@ -47,9 +41,7 @@ static void response_end(Buffer &out, size_t header) {
     memcpy(&out[header], &len, 4);
 }
 
-/**
- * Process one request when there is enough data
-*/
+// Process one request when there is enough data
 bool handle_one_request(Connection *conn) {
     // try to parse the protocol: message header
     if (conn->incoming.size() < 4) { return false; } // we don't even know the size of the message
@@ -93,9 +85,7 @@ bool handle_one_request(Connection *conn) {
     return true;
 }
 
-/**
- * Application callback when the socket is writable
-*/
+// Application callback when the socket is writable
 void handle_write(Connection *conn) {
     assert(!conn->outgoing.empty()); // check if there is any outgoing data
 

@@ -22,9 +22,7 @@
 #include "net/netio.h" // Connection, handle_read, handle_write
 
 
-/**
- * Handle the client connection
-*/
+// Handle the client connection
 static Connection *handle_accept(int listen_fd) {
     //accept the connection
     struct sockaddr_in client_addr = {};

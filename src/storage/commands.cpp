@@ -11,6 +11,11 @@
 #include "../net/serialize.h"   // out_str, out_nil, out_err, out_int
 #include "../core/sys.h"        // Buffer
 
+/**
+ * Macro to recover the address of a parent struct from the address of one of its members. 
+ * As we are using intrusive data structure, T and ptr for the members are together in the same memory location.
+ * So we can recover the address of the parent struct by subtracting the offset of the member from the address of the pointer.
+*/
 #define container_of(ptr, T, member) \
     ((T *) ((char*) ptr - offsetof(T, member)))
 
@@ -29,9 +34,8 @@ bool entry_equals(HashNode *lhs, HashNode *rhs) {
     return le->key == re->key;
 }
 
-/**
- * FNV hash function
-*/
+// FNV hash function
+
 uint64_t string_hash(const uint8_t *data, size_t len){
     uint32_t base = 0x811C9DC5; // FNV-1a offset basis, Decimal: 2166136261
     uint32_t prime = 0x1000193; // FNV-1a prime, Decimal: 16777619
@@ -42,9 +46,7 @@ uint64_t string_hash(const uint8_t *data, size_t len){
     return base;
 }
 
-/**
- * Set the value of the key from the hash table
-*/
+// Set the value of the key from the hash table
 void set_key(std::vector<std::string> &cmd, Buffer &resp){
     // A dummy 'Entry' just for the lookup
     Entry key;
@@ -68,9 +70,7 @@ void set_key(std::vector<std::string> &cmd, Buffer &resp){
     return out_nil(resp);
 }
 
-/**
- * Get the value of the key from the hash table
-*/
+// Get the value of the key from the hash table
 void get_key(std::vector<std::string> &cmd, Buffer &resp){
     // A dummy 'Entry' just for the lookup
     Entry key;
@@ -89,9 +89,7 @@ void get_key(std::vector<std::string> &cmd, Buffer &resp){
     return out_str(resp, val.data(), val.size());
 }
 
-/**
- * Delete the value of the key from the hash table
-*/
+// Delete the value of the key from the hash table
 void del_key(std::vector<std::string> &cmd, Buffer &resp){
     Entry key;
     key.key.swap(cmd[1]);
@@ -106,9 +104,7 @@ void del_key(std::vector<std::string> &cmd, Buffer &resp){
     return out_int(resp, node ? 1 : 0);
 }
 
-/**
- * Callback function for the keys command
-*/
+// Callback function for the keys command
 static bool cb_keys(HashNode *node, void *arg) {
     Buffer &resp = *(Buffer *)arg;
     const Entry *entry = container_of(node, Entry, node);
@@ -118,17 +114,13 @@ static bool cb_keys(HashNode *node, void *arg) {
     return true;
 }
 
-/**
- * Get all the keys from the hash table
-*/
+// Get all the keys from the hash table
 void all_keys(std::vector<std::string> &, Buffer &resp) {
     out_arr(resp, (uint32_t)hm_size(&server_data.db));
     hm_foreach(&server_data.db, &cb_keys, (void *)&resp);
 }
 
-/** 
- * Run one request
-*/
+// Run one request
 void run_request(std::vector<std::string> &cmd, Buffer &resp) {
     // ping request
     if (cmd.size() == 1 && cmd[0] == "ping") {
