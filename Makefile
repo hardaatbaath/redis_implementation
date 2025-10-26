@@ -23,6 +23,9 @@ CLIENT_OBJS := $(BUILD_DIR)/client.o \
 			   $(BUILD_DIR)/clientnet.o \
 			   $(BUILD_DIR)/serialize.o
 
+# Tests
+TEST_OBJS := $(BUILD_DIR)/test_avl.o $(BUILD_DIR)/avl_tree.o
+
 # Phony alias so `make build` works
 .PHONY: build
 build: all
@@ -64,6 +67,17 @@ $(BUILD_DIR)/serialize.o: $(SRC_DIR)/net/serialize.cpp | dirs
 $(BUILD_DIR)/clientnet.o: $(SRC_DIR)/net/clientnet.cpp | dirs
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# Storage objects used by tests
+$(BUILD_DIR)/avl_tree.o: $(SRC_DIR)/storage/avl_tree.cpp | dirs
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Test build rules
+$(BUILD_DIR)/test_avl.o: tests/test_avl.cpp | dirs
+	$(CXX) $(CXXFLAGS) -I$(SRC_DIR) -c $< -o $@
+
+$(BIN_DIR)/test_avl: $(TEST_OBJS) | dirs
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+
 $(BIN_DIR)/server: $(SERVER_OBJS) | dirs
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
@@ -74,6 +88,10 @@ $(BIN_DIR)/client: $(CLIENT_OBJS) | dirs
 .PHONY: server client run-server run-client clean rebuild
 server: $(BIN_DIR)/server
 client: $(BIN_DIR)/client
+
+.PHONY: test-avl
+test-avl: $(BIN_DIR)/test_avl
+	$(BIN_DIR)/test_avl
 
 run-server: server
 	$(BIN_DIR)/server
@@ -87,5 +105,5 @@ clean:
 rebuild: clean all
 
 # Auto-deps
-DEPS := $(SERVER_OBJS:.o=.d) $(CLIENT_OBJS:.o=.d)
+DEPS := $(SERVER_OBJS:.o=.d) $(CLIENT_OBJS:.o=.d) $(TEST_OBJS:.o=.d)
 -include $(DEPS)

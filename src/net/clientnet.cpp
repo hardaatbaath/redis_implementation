@@ -26,9 +26,7 @@ int32_t read_all(int fd, char* buf, size_t n){
     return 0;
 }
 
-/**
- * Write exactly n bytes to the file descriptor
-*/
+// Write exactly n bytes to the file descriptor
 int32_t write_all(int fd, char* buf, size_t n){
     while (n > 0){
         ssize_t rv = write(fd, buf, n); // possible that we write less than n bytes

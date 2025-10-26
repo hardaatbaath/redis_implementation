@@ -24,20 +24,16 @@ struct Entry {
 */ 
 bool entry_equals(HashNode *lhs, HashNode *rhs);
 
-/**
- * FNV hash function
-*/
+// FNV hash function
 uint64_t string_hash(const uint8_t *data, size_t len);
 
 // Request handlers
-void set_key(std::vector<std::string> &cmd, Buffer &resp);
-void get_key(std::vector<std::string> &cmd, Buffer &resp);
-void del_key(std::vector<std::string> &cmd, Buffer &resp);
-void all_keys(std::vector<std::string> &, Buffer &resp);
-void do_keys(std::vector<std::string> &, Buffer &resp);
+void set_key(std::vector<std::string> &cmd, Buffer &resp); // set the value of the key
+void get_key(std::vector<std::string> &cmd, Buffer &resp); // get the value of the key
+void del_key(std::vector<std::string> &cmd, Buffer &resp); // delete the value of the key
+void all_keys(std::vector<std::string> &, Buffer &resp); // get all the keys
+void do_keys(std::vector<std::string> &, Buffer &resp); // do the keys command
 
-/** 
- * Run one request
-*/
+// Run one request
 void run_request(std::vector<std::string> &cmd, Buffer &resp);
 

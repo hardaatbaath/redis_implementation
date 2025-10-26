@@ -1,6 +1,5 @@
 // C stdlib
 #include <string.h>      // memcpy (read_header/read_string)
-#include <stdint.h>      // standard types
 
 // C++ stdlib
 #include <vector>        // std::vector (parse_request)
@@ -10,34 +9,6 @@
 #include "protocol.h"          // Response, API declarations
 #include "../core/constants.h" // k_max_args
 #include "../core/sys.h"       // append_buffer
-
-/**
- * Read the header for the request (size or total number of requests)
-*/
-bool read_header(const uint8_t *&cursor, const uint8_t *end, uint32_t &value) {
-    // Check if there is enough data to read the header`
-    if (end - cursor < 4) { return false; }
-
-    // Read the header, move the pointer to the next 4 bytes
-    memcpy(&value, cursor, 4);
-    cursor += 4;
-    
-    return true;
-}
-
-/**
- * Read the request
-*/
-bool read_string(const uint8_t *&cursor, const uint8_t *end, uint32_t len, std::string &output) {
-    // Check if there is enough data to read the string
-    if (end - cursor < len) { return false; }
-
-    // Read the string, move the pointer to the next len bytes
-    output = std::string((char*)cursor, len);
-    cursor += len;
-
-    return true;
-}
 
 /** 
  * Parse one request:
@@ -61,7 +32,7 @@ int32_t parse_request(const uint8_t *data, size_t size, std::vector<std::string>
         // Read the length of the request
         if (!read_header(cursor, end , len)) { return -1; }
 
-        cmd.push_back(std::string()); // push back an empty string
+        cmd.push_back(std::string()); // Push back an empty string
 
         // Read the request
         if (!read_string(cursor, end, len, cmd.back())) { return -1; }
@@ -73,9 +44,7 @@ int32_t parse_request(const uint8_t *data, size_t size, std::vector<std::string>
     return 0;
 }
 
-/**
- * Generate the response
-*/
+// Generate the response
 void generate_response(const Response &resp, std::vector<uint8_t> &out) {
     // 4 bytes for the status code + the size of the data
     uint32_t resp_len = 4 + (uint32_t)resp.data.size();
