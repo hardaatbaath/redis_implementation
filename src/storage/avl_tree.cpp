@@ -163,7 +163,7 @@ void avl_search_and_insert(AVLNode **root, AVLNode *new_node, bool (*less)(AVLNo
     AVLNode **from = root; // the incoming pointer to the next node, place the new node here
     
     // Find the correct position to insert the new node
-    for (AVLNode *node = *root; ;) {
+    for (AVLNode *node = *root; node;) {
         from  = less(new_node, node) ? &node->left : &node->right;
         parent = node;
         node = *from;
@@ -180,7 +180,7 @@ void avl_search_and_insert(AVLNode **root, AVLNode *new_node, bool (*less)(AVLNo
 // Delete a node from the AVL tree
 AVLNode *avl_search_and_delete(AVLNode **root, void *key, int32_t (*cmp)(AVLNode *, void *)) {
     // Find the node to delete
-    for (AVLNode *node = *root; ;) {
+    for (AVLNode *node = *root; node;) {
         int32_t cmp_result = cmp(node, key);
         
         // Based on the comparison result, move to the left or right child
