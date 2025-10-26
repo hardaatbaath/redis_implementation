@@ -24,3 +24,7 @@ inline uint32_t avl_cnt(AVLNode *node) { return node ? node->cnt : 0; }
 // functions
 AVLNode *avl_fix_tree(AVLNode *node);
 AVLNode *avl_delete(AVLNode *node);
+
+// Insertion and deletion helpers
+void avl_search_and_insert(AVLNode **root, AVLNode *new_node, bool (*less)(AVLNode *, AVLNode *));
+AVLNode *avl_search_and_delete(AVLNode **root, void *key, bool (*cmp)(AVLNode *, void *));

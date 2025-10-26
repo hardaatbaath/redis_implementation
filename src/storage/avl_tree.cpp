@@ -1,4 +1,5 @@
 #include <assert.h> // assert
+#include <cstddef>
 #include <stdint.h> // uint32_t
 
 #include "avl_tree.h"
@@ -153,4 +154,44 @@ AVLNode *avl_delete(AVLNode *node) {
     // Attach the successor to the parent, or update the root pointer
     *from = victim;
     return root;
+}
+
+// Insert a node into the AVL tree
+void avl_search_and_insert(AVLNode **root, AVLNode *new_node, bool (*less)(AVLNode *, AVLNode *)) {
+    // Find the correct position to insert the new node
+    AVLNode *parent = NULL; // place the new node as it's child
+    AVLNode **from = root; // the incoming pointer to the next node, place the new node here
+    
+    // Find the correct position to insert the new node
+    for (AVLNode *node = *root; ;) {
+        from  = less(new_node, node) ? &node->left : &node->right;
+        parent = node;
+        node = *from;
+    }
+
+    // Attach the new node to the parent
+    *from = new_node;
+    new_node->parent = parent;
+
+    // Fix the tree
+    avl_fix_tree(new_node);
+}
+
+// Delete a node from the AVL tree
+AVLNode *avl_search_and_delete(AVLNode **root, void *key, int32_t (*cmp)(AVLNode *, void *)) {
+    // Find the node to delete
+    for (AVLNode *node = *root; ;) {
+        int32_t cmp_result = cmp(node, key);
+        
+        // Based on the comparison result, move to the left or right child
+        if (cmp_result < 0) { node = node->right; }
+        else if (cmp_result > 0) { node = node->left; }
+        else { 
+            // Delete the node
+            *root = avl_delete(node);
+            return node;
+        }
+    }
+
+    return NULL;
 }
