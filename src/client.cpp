@@ -18,7 +18,7 @@
 
 // local
 #include "core/sys.h"        // msg, die, append_buffer
-#include "net/clientnet.h"   // read_all, write_all
+#include "net/netio.h"   // read_all, write_all
 #include "net/serialize.h"   // out_nil, out_err, out_str, out_int, out_dbl, out_bool, out_arr, out_map
 #include "core/constants.h"  // k_max_msg
 

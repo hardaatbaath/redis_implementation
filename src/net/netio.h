@@ -1,10 +1,15 @@
 // src/netio.h
 #pragma once
 
-#include <stdint.h>
-#include <stddef.h>
-#include <vector>
-#include <string>
+// C stdlib
+#include <assert.h>      // assert
+#include <stddef.h>      // size_t
+#include <stdint.h>      // int32_t
+#include <unistd.h>      // read, write
+
+// C++ stdlib
+#include <vector>        // std::vector
+#include <string>        // std::string
 
 struct Connection {
     int socket_fd = -1; // listening/accepted socket fd, by default set to -1
@@ -25,3 +30,37 @@ bool handle_one_request(Connection *conn);
 void handle_read(Connection *conn);
 void handle_write(Connection *conn);
 
+// Client-side netio helpers
+/**
+ * Read exactly n bytes from the file descriptor
+ * size_t is unsigned int, used for memory allocation
+ * ssize_t is signed int, used for file descriptor
+*/
+inline int32_t read_all(int fd, char* buf, size_t n){
+    while (n > 0){
+        ssize_t rv = read(fd, buf, n); // possible that we get less than n bytes
+        if (rv <= 0) {
+            return -1; // error or unexpected EOF happened
+        }
+        
+        assert((size_t)rv <= n);
+        n -= (size_t)rv;
+        buf += rv;
+    }
+    return 0;
+}
+
+// Write exactly n bytes to the file descriptor
+inline int32_t write_all(int fd, char* buf, size_t n){
+    while (n > 0){
+        ssize_t rv = write(fd, buf, n); // possible that we write less than n bytes
+        if (rv <= 0) {
+            return -1; // error in writing
+        }
+
+        assert((size_t)rv <= n);
+        n -= (size_t)rv;
+        buf += rv;
+    }
+    return 0;
+}
