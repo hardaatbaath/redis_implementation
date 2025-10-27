@@ -20,7 +20,6 @@ SERVER_OBJS := $(BUILD_DIR)/server.o \
 CLIENT_OBJS := $(BUILD_DIR)/client.o \
                $(BUILD_DIR)/sys.o \
                $(BUILD_DIR)/protocol.o \
-			   $(BUILD_DIR)/clientnet.o \
 			   $(BUILD_DIR)/serialize.o
 
 # Tests
@@ -64,8 +63,7 @@ $(BUILD_DIR)/hashtable.o: $(SRC_DIR)/storage/hashtable.cpp | dirs
 $(BUILD_DIR)/serialize.o: $(SRC_DIR)/net/serialize.cpp | dirs
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/clientnet.o: $(SRC_DIR)/net/clientnet.cpp | dirs
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 
 # Storage objects used by tests
 $(BUILD_DIR)/avl_tree.o: $(SRC_DIR)/storage/avl_tree.cpp | dirs
