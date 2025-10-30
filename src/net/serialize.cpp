@@ -6,7 +6,8 @@
 
 // local
 #include "serialize.h" // TAG_NIL, TAG_ERR, TAG_STR, TAG_INT, TAG_DBL, TAG_BOOL, TAG_ARR, TAG_MAP, print_response
-#include "../core/sys.h" // msg, append_buffer_u8, append_buffer_u32, append_buffer_i64, append_buffer_f64, append_buffer_bool, append_buffer_string, append_buffer_array, append_buffer_map
+#include "../core/sys.h" // msg, msg_error, die, fd_set_nb
+#include "../core/buffer_io.h" // Buffer append/consume helpers
 
 // Print the response
 int32_t print_response(const uint8_t *data, size_t size){

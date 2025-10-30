@@ -8,24 +8,41 @@
 // local
 #include "hashtable.h" // HashNode, HashMap, hm_*
 #include "../net/protocol.h"  // Response
-#include "../core/sys.h"      // Buffer
+#include "../core/buffer_io.h" // Buffer
+#include "sorted_set.h" // ZSet, ZNode, zset_*
+
+
+// Supported value types in each entry
+enum ValueType : uint8_t {
+    TYPE_INIT  = 0,
+    TYPE_STR   = 1,    // string
+    TYPE_ZSET  = 2,    // sorted set
+};
+    
 
 // KV pair storage for the server
 struct Entry {
     struct HashNode node;    // embedded hashnode node
-    std::string key;
-    std::string value;
+    std::string key;        // key of the entry
+    uint32_t type = TYPE_INIT; // type of the value
+
+    // One of the following
+    std::string value;      // value of the entry
+    ZSet zset;
 };
 
+inline static Entry *entry_new(uint32_t type = TYPE_INIT) {
+    Entry *entry = new Entry();
+    entry->type = type;
+    return entry;
+}
 
-/**
- * Equality comparitor for 'struct Entry'
- * container_of is used to recover the address of a parent struct from the address of one of its members. 
-*/ 
-bool entry_equals(HashNode *lhs, HashNode *rhs);
-
-// FNV hash function
-uint64_t string_hash(const uint8_t *data, size_t len);
+inline static void entry_del(Entry *entry) {
+    if (entry->type == TYPE_ZSET) {
+        zset_clear(&entry->zset);
+    }
+    delete entry;
+}
 
 // Request handlers
 void set_key(std::vector<std::string> &cmd, Buffer &resp); // set the value of the key

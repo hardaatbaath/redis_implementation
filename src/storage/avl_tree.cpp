@@ -156,6 +156,40 @@ AVLNode *avl_delete(AVLNode *node) {
     return root;
 }
 
+/** 
+ * Offset into the succeeding or preceding node
+ * note: the worst-case is O(log N) regardless of how long the offset is.
+ */
+AVLNode *avl_offset(AVLNode *node, int32_t offset) {
+    int64_t pos = 0; // Stores the rank difference from the starting node
+
+    while (offset != pos) {
+        if (pos < offset && pos + avl_cnt(node->left) >= offset) {
+            // the target is inside of the right subtree
+            node = node->right;
+            pos += avl_cnt(node->left) + 1;
+        } 
+        else if (pos > offset && pos - avl_cnt(node->right) <= offset) {
+            // the target is inside of the left subtree
+            node = node->left;
+            pos -= avl_cnt(node->right) + 1;
+        }
+        else {
+            // the target is not in the subtree range, and we need to move to the parent node
+            AVLNode *parent = node->parent;
+            if (!parent) { return NULL; }
+            if (parent->right == node) {
+                pos -= avl_cnt(node->left) + 1;
+            }
+            else {
+                pos += avl_cnt(node->right) + 1;
+            }
+            node = parent;
+        }
+    }
+    return node;
+}
+
 // Insert a node into the AVL tree
 void avl_search_and_insert(AVLNode **root, AVLNode *new_node, bool (*less)(AVLNode *, AVLNode *)) {
     // Find the correct position to insert the new node
