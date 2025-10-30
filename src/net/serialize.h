@@ -6,15 +6,15 @@
 
 // C++ stdlib
 #include <string>    // std::string
-#include <vector>    // std::vector
-#include <map>       // std::map
 
-typedef std::vector<uint8_t> Buffer;
+#include "../core/buffer_io.h" // Buffer
 
 // error code for TAG_ERR
 enum {
     ERR_UNKNOWN = 1,    // unknown command
     ERR_TOO_BIG = 2,    // response too big
+    ERR_BAD_TYP = 3,    // unexpected value type
+    ERR_BAD_ARG = 4,    // bad arguments
 };
 
 // Tags for the response

@@ -1,5 +1,7 @@
 // C stdlib
 #include <assert.h>      // assert (get_key)
+#include <stdlib.h>      // strtod, strtoll
+#include <math.h>        // isnan
 
 // C++ stdlib
 #include <string>        // std::string (Entry keys/values)
@@ -9,15 +11,8 @@
 #include "commands.h"           // Entry/LookupKey, run_request
 #include "../core/constants.h" // k_max_msg
 #include "../net/serialize.h"   // out_str, out_nil, out_err, out_int
-#include "../core/sys.h"        // Buffer
-
-/**
- * Macro to recover the address of a parent struct from the address of one of its members. 
- * As we are using intrusive data structure, T and ptr for the members are together in the same memory location.
- * So we can recover the address of the parent struct by subtracting the offset of the member from the address of the pointer.
-*/
-#define container_of(ptr, T, member) \
-    ((T *) ((char*) ptr - offsetof(T, member)))
+#include "../core/buffer_io.h"  // Buffer
+#include "../core/common.h"     // container_of, string_hash
 
 // Top level hashtable for the server
 static struct  {
@@ -28,23 +23,13 @@ static struct  {
  * Equality comparitor for 'struct Entry'
  * container_of is used to recover the address of a parent struct from the address of one of its members. 
 */ 
-bool entry_equals(HashNode *lhs, HashNode *rhs) {
-    struct Entry *le = container_of(lhs, struct Entry, node);
-    struct Entry *re = container_of(rhs, struct Entry, node);
-    return le->key == re->key;
+static bool entry_equals(HashNode *node, HashNode *key) {
+    struct Entry *entry = container_of(node, struct Entry, node);
+    struct LookupKey *lookup_key = container_of(key, struct LookupKey, node);
+    return entry->key == lookup_key->key;
 }
 
-// FNV hash function
 
-uint64_t string_hash(const uint8_t *data, size_t len){
-    uint32_t base = 0x811C9DC5; // FNV-1a offset basis, Decimal: 2166136261
-    uint32_t prime = 0x1000193; // FNV-1a prime, Decimal: 16777619
-
-    for (size_t i = 0; i < len; i++) {
-        base = (base + data[i]) * prime;
-    }
-    return base;
-}
 
 // Set the value of the key from the hash table
 void set_key(std::vector<std::string> &cmd, Buffer &resp){
@@ -120,6 +105,8 @@ void all_keys(std::vector<std::string> &, Buffer &resp) {
     hm_foreach(&server_data.db, &cb_keys, (void *)&resp);
 }
 
+
+
 // Run one request
 void run_request(std::vector<std::string> &cmd, Buffer &resp) {
     // ping request
@@ -142,10 +129,20 @@ void run_request(std::vector<std::string> &cmd, Buffer &resp) {
         return del_key(cmd, resp);
     }
 
-    // all keys request
-    else if (cmd.size() == 2 && cmd[0] == "all" && cmd[1] == "keys") {
+    // keys request
+    else if (cmd.size() == 1 && cmd[0] == "keys") {
         return all_keys(cmd, resp);
     }
+
+    // zset requests
+    // zadd <key> <score> <member>     → adds/updates a member   e.g. zadd players 100 alice
+    // zscore <key> <member>           → gets member’s score     e.g. zscore players alice
+    // zrem <key> <member>             → removes a member        e.g. zrem players alice
+    // zquery <key> <min> <max> <off> <limit> → range query     e.g. zquery players 0 200 0 3
+    else if (cmd.size() == 4 && cmd[0] == "zadd") { return zcmd_add(&server_data.db, cmd, resp); }
+    else if (cmd.size() == 3 && cmd[0] == "zrem") { return zcmd_remove(&server_data.db, cmd, resp); }
+    else if (cmd.size() == 3 && cmd[0] == "zscore") { return zcmd_score(&server_data.db, cmd, resp); }
+    else if (cmd.size() == 6 && cmd[0] == "zquery") { return zcmd_query(&server_data.db, cmd, resp); }
 
     // unknown request
     else {

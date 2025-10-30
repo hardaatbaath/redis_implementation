@@ -8,7 +8,7 @@
 // local
 #include "protocol.h"          // Response, API declarations
 #include "../core/constants.h" // k_max_args
-#include "../core/sys.h"       // append_buffer
+#include "../core/buffer_io.h" // Buffer, append_buffer
 
 /** 
  * Parse one request:

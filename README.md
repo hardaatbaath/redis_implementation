@@ -1,11 +1,11 @@
 # redis-from-scratch-c
 
-Minimal Redis-like TCP server/client (C++17) focused on learning networking, framing, and a simple in-memory key-value store with incremental rehashing.
+Minimal Redis-like TCP server/client (GNU C++17) focused on networking, framing, and a simple in-memory key-value store with incremental rehashing and a sorted set type.
 
 ## Prerequisites
 - macOS or Linux
 - make
-- g++ (C++17)
+- g++ (GNU C++17)
 
 Verify:
 ```bash
@@ -20,6 +20,7 @@ make
 ```
 - Binaries are placed in `bin/`
 - Objects and dependency files go to `build/`
+ - Uses `-std=gnu++17` (GNU extensions enabled)
 
 ## Run
 Use two terminals:
@@ -44,7 +45,7 @@ pong
 > get greeting
 hello
 > all keys
-greeting hello
+greeting : hello
 > del greeting
 > get greeting
   # status 404 (printed to stderr)
@@ -71,23 +72,27 @@ src/
   server.cpp                  # server entrypoint (poll-based event loop)
 
   core/
-    sys.h / sys.cpp           # logging, die(), non-blocking fd, read_all/write_all, buffer helpers
+    sys.h / sys.cpp           # logging, die(), non-blocking fd
+    buffer_io.h               # Buffer type and append/consume helpers
     constants.h               # k_max_msg, k_max_args, load factor, rehashing work
 
   net/
     netio.h / netio.cpp       # Connection type and I/O state machine (read/parse/execute/write)
-    protocol.h / protocol.cpp # argv-style request framing + response framing
+    protocol.h / protocol.cpp # argv-style request framing (client → server)
+    serialize.h / serialize.cpp # typed response encoding/printing (server → client)
 
   storage/
     hashtable.h / .cpp        # chaining hash table with incremental rehashing (older/newer tables)
-    commands.h / .cpp         # key/value commands and command dispatcher (run_request)
+    avl_tree.h / .cpp         # AVL tree primitives used by sorted set
+    sorted_set.h / .cpp       # ZSet (by-name hash + (score,name) AVL index) + z* command helpers
+    commands.h / .cpp         # command dispatcher (run_request) and string KV commands
 
 Makefile                      # build rules and run targets
 README.md                     # this file
 ```
 
 ## Wire Protocol
-The client sends argv-framed requests; the server replies with a framed response.
+The client sends argv-framed requests; the server replies with a typed, framed response.
 
 - Request (client → server):
   - Frame: `[payload_len:u32][payload_bytes...]`
@@ -95,7 +100,7 @@ The client sends argv-framed requests; the server replies with a framed response
 
 - Response (server → client):
   - Frame: `[payload_len:u32][payload_bytes...]`
-  - Payload: `[status:u32][data:bytes...]`
+  - Payload: tag-encoded values (nil/err/str/int/dbl/arr/map); the client prints human-readable output.
 
 Limits and safety checks:
 - `k_max_msg` caps frame sizes (default 32 MiB)
@@ -103,10 +108,16 @@ Limits and safety checks:
 
 ## Supported Commands
 - `ping` → returns `pong`
-- `set <key> <value>` → stores/updates a value
-- `get <key>` → prints the value; status `404` if missing
-- `del <key>` → deletes the key; status `404` if missing
-- `all keys` → prints all `key value` pairs (one per line)
+- `set <key> <value>` → stores/updates a string value
+- `get <key>` → prints the value; prints `nil` if missing
+- `del <key>` → deletes the key; prints `1` if deleted, `0` if missing
+- `all keys` → prints all keys as lines `key : value`
+
+Sorted set (`ZSet`):
+- `zadd <zkey> <score:float> <member>` → add/update member; prints `1` if added, `0` if updated
+- `zrem <zkey> <member>` → remove member; prints `1` if removed, `0` if not found
+- `zscore <zkey> <member>` → prints the score or `nil`
+- `zquery <zkey> <score:float> <member-prefix> <offset:int> <limit:int>` → prints an array of `[member, score, member, score, ...]` pairs starting at the first tuple ≥ `(score, member-prefix)`
 
 ## Architecture Overview
 - Non-blocking server using `poll(2)` to multiplex connections.

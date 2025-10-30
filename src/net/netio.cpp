@@ -14,7 +14,8 @@
 #include "protocol.h"           // parse_request, generate_response, Response
 #include "../storage/commands.h" // run_request
 #include "../core/constants.h"  // k_max_msg
-#include "../core/sys.h"        // msg_error, append_buffer, consume_buffer
+#include "../core/sys.h"        // msg_error
+#include "../core/buffer_io.h"  // Buffer, append_buffer, consume_buffer
 #include "../net/serialize.h"   // out_err, append_buffer_u32
 
 // Begin the response

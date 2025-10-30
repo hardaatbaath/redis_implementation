@@ -4,6 +4,9 @@
 #include <stdint.h>       // uint64_t (hash_code)
 #include <stddef.h>       // size_t  (mask, size)
 
+// C++ stdlib
+#include <string>   // std::string (LookupKey key)
+
 struct HashNode {
     HashNode *next = NULL;   // the next node in the chain
     uint64_t hash_code = 0;  // the hash code of the key
@@ -23,6 +26,11 @@ struct HashMap {
     HashTable older;
     HashTable newer;
     size_t migration_pos = 0;    // the position of the migration in the newer table
+};
+
+struct LookupKey {
+    struct HashNode node;  // hashtable node
+    std::string key;
 };
 
 // HashMap functions
