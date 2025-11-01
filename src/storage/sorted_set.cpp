@@ -207,14 +207,14 @@ static bool entry_key_equals(HashNode *node, HashNode *k) {
 }
 
 // Lookup or validate a ZSet entry in the DB.
-static ZSet *expect_zset(HashMap *db, std::string &s) {
+static ZSet *expect_zset(std::string &s) {
     // Create a new key
     LookupKey key;
     key.key.swap(s);
     key.node.hash_code = string_hash((uint8_t *)key.key.data(), key.key.size());
 
     // Lookup the key in the hash table
-    HashNode *hnode = hm_lookup(db, &key.node, &entry_key_equals);
+    HashNode *hnode = hm_lookup(&server_data.db, &key.node, &entry_key_equals);
     if (!hnode) { return (ZSet *)&k_empty_zset; } // a non-existent key is treated as an empty zset
     
     // Get the entry from the hash node
@@ -226,7 +226,7 @@ static ZSet *expect_zset(HashMap *db, std::string &s) {
  * Command: ZADD <key> <score> <member>
  * Add or update a member’s score in a ZSet.
  */
-void zcmd_add(HashMap *db, std::vector<std::string> &cmd, Buffer &resp) {
+void zcmd_add(std::vector<std::string> &cmd, Buffer &resp) {
     // Convert the score to a double
     double score = 0;
     if (!str2dbl(cmd[2], score)) {
@@ -237,14 +237,14 @@ void zcmd_add(HashMap *db, std::vector<std::string> &cmd, Buffer &resp) {
     LookupKey key;
     key.key.swap(cmd[1]);
     key.node.hash_code = string_hash((uint8_t *)key.key.data(), key.key.size());
-    HashNode *hnode = hm_lookup(db, &key.node, &entry_key_equals);
+    HashNode *hnode = hm_lookup(&server_data.db, &key.node, &entry_key_equals);
 
     Entry *ent = NULL;
     if (!hnode) {   // insert a new key
         ent = entry_new(TYPE_ZSET);
         ent->key.swap(key.key);
         ent->node.hash_code = key.node.hash_code;
-        hm_insert(db, &ent->node);
+        hm_insert(&server_data.db, &ent->node);
     } 
     else {           // If the key exists, check the type
         ent = container_of(hnode, Entry, node);
@@ -263,9 +263,9 @@ void zcmd_add(HashMap *db, std::vector<std::string> &cmd, Buffer &resp) {
  * Command: ZREM <key> <member>
  * Remove a member from a ZSet.
  */
-void zcmd_remove(HashMap *db, std::vector<std::string> &cmd, Buffer &resp) {
+void zcmd_remove(std::vector<std::string> &cmd, Buffer &resp) {
     // Lookup or validate a ZSet entry in the DB.
-    ZSet *zset = expect_zset(db, cmd[1]);
+    ZSet *zset = expect_zset(cmd[1]);
     if (!zset) { return out_err(resp, ERR_BAD_TYP, "expect zset"); }
     
     // Get the name from the command
@@ -281,8 +281,8 @@ void zcmd_remove(HashMap *db, std::vector<std::string> &cmd, Buffer &resp) {
  * Command: ZSCORE <key> <member>
  * Get the score of a member in a ZSet.
  */
-void zcmd_score(HashMap *db, std::vector<std::string> &cmd, Buffer &resp) {
-    ZSet *zset = expect_zset(db, cmd[1]);
+void zcmd_score(std::vector<std::string> &cmd, Buffer &resp) {
+    ZSet *zset = expect_zset(cmd[1]);
     if (!zset) { return out_err(resp, ERR_BAD_TYP, "expect zset"); }
     
     // Get the name from the command
@@ -294,10 +294,10 @@ void zcmd_score(HashMap *db, std::vector<std::string> &cmd, Buffer &resp) {
 }
 
 /**
- * Command: ZQUERY <key> <min> <max> <off> <limit>
+ * Command: ZQUERY <key> <score> <name> <offset> <limit>
  * Range query on a ZSet.
  */
-void zcmd_query(HashMap *db, std::vector<std::string> &cmd, Buffer &resp) {
+void zcmd_query(std::vector<std::string> &cmd, Buffer &resp) {
     // Convert the score to a double
     double score = 0;
     if (!str2dbl(cmd[2], score)) { return out_err(resp, ERR_BAD_ARG, "expect fp number"); }
@@ -309,7 +309,7 @@ void zcmd_query(HashMap *db, std::vector<std::string> &cmd, Buffer &resp) {
     int64_t offset = 0, limit = 0;
     if (!str2int(cmd[4], offset) || !str2int(cmd[5], limit)) { return out_err(resp, ERR_BAD_ARG, "expect int"); }
 
-    ZSet *zset = expect_zset(db, cmd[1]);
+    ZSet *zset = expect_zset(cmd[1]);
     if (!zset) { return out_err(resp, ERR_BAD_TYP, "expect zset"); }
     
     // Return an empty array if the limit is less than or equal to 0
@@ -317,9 +317,17 @@ void zcmd_query(HashMap *db, std::vector<std::string> &cmd, Buffer &resp) {
 
     // Get the first node that is >= the score and name
     ZNode *znode = zset_seek_greater_equal(zset, score, name.data(), name.size());
+    if (!znode) {
+        out_arr(resp, 0);
+        return;
+    }
 
     // Get the node at the offset
     znode = znode_offset(znode, offset);
+    if (!znode) {
+        out_arr(resp, 0);
+        return;
+    }
 
     // Count the number of nodes
     size_t n = 0;
@@ -331,10 +339,9 @@ void zcmd_query(HashMap *db, std::vector<std::string> &cmd, Buffer &resp) {
     out_arr(resp, (uint32_t)n);
 
     // Output the nodes
-    while (znode && n > 0) {
+    for (uint32_t i = 0; i < n / 2 && znode; ++i) {
         out_str(resp, znode->name, znode->len);
         out_dbl(resp, znode->score);
         znode = znode_offset(znode, +1);
-        n -= 2;
     }
 }

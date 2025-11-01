@@ -107,7 +107,7 @@ test-offset: $(BIN_DIR)/test_offset
 test-cmds: $(BIN_DIR)/server $(BIN_DIR)/client
 	cd $(BIN_DIR) && set -e;\
 	./server & echo $$! > ../$(BUILD_DIR)/server.pid; \
-	sleep 0.3; \
+	sleep 0.5; \
 	python3 ../tests/test_cmds.py; \
 	kill `cat ../$(BUILD_DIR)/server.pid` || true; \
 	rm -f ../$(BUILD_DIR)/server.pid

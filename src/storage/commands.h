@@ -18,7 +18,11 @@ enum ValueType : uint8_t {
     TYPE_STR   = 1,    // string
     TYPE_ZSET  = 2,    // sorted set
 };
-    
+
+// Top level hashtable for the server
+static struct  {
+    HashMap db;
+} server_data;
 
 // KV pair storage for the server
 struct Entry {
@@ -49,7 +53,6 @@ void set_key(std::vector<std::string> &cmd, Buffer &resp); // set the value of t
 void get_key(std::vector<std::string> &cmd, Buffer &resp); // get the value of the key
 void del_key(std::vector<std::string> &cmd, Buffer &resp); // delete the value of the key
 void all_keys(std::vector<std::string> &, Buffer &resp); // get all the keys
-void do_keys(std::vector<std::string> &, Buffer &resp); // do the keys command
 
 // Run one request
 void run_request(std::vector<std::string> &cmd, Buffer &resp);

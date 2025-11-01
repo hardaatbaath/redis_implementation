@@ -29,8 +29,6 @@ enum {
     TAG_MAP = 7,     // map
 };
 
-int32_t print_response(const uint8_t *data, size_t size);
-
 // append serialized data types to the back
 void out_nil(Buffer &out);
 void out_err(Buffer &out, uint32_t code, const std::string &msg);
