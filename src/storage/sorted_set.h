@@ -41,7 +41,7 @@ void   zset_clear(ZSet *zset);
 ZNode *znode_offset(ZNode *node, int64_t offset);
 
 // Z-set command handlers (operate on top-level HashMap `db`)
-void zcmd_add(HashMap *db, std::vector<std::string> &cmd, Buffer &resp);
-void zcmd_remove(HashMap *db, std::vector<std::string> &cmd, Buffer &resp);
-void zcmd_score(HashMap *db, std::vector<std::string> &cmd, Buffer &resp);
-void zcmd_query(HashMap *db, std::vector<std::string> &cmd, Buffer &resp);
+void zcmd_add(std::vector<std::string> &cmd, Buffer &resp);
+void zcmd_remove(std::vector<std::string> &cmd, Buffer &resp);
+void zcmd_score(std::vector<std::string> &cmd, Buffer &resp);
+void zcmd_query(std::vector<std::string> &cmd, Buffer &resp);

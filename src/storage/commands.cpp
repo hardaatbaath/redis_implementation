@@ -14,11 +14,6 @@
 #include "../core/buffer_io.h"  // Buffer
 #include "../core/common.h"     // container_of, string_hash
 
-// Top level hashtable for the server
-static struct  {
-    HashMap db;
-} server_data;
-
 /**
  * Equality comparitor for 'struct Entry'
  * container_of is used to recover the address of a parent struct from the address of one of its members. 
@@ -139,10 +134,10 @@ void run_request(std::vector<std::string> &cmd, Buffer &resp) {
     // zscore <key> <member>           → gets member’s score     e.g. zscore players alice
     // zrem <key> <member>             → removes a member        e.g. zrem players alice
     // zquery <key> <min> <max> <off> <limit> → range query     e.g. zquery players 0 200 0 3
-    else if (cmd.size() == 4 && cmd[0] == "zadd") { return zcmd_add(&server_data.db, cmd, resp); }
-    else if (cmd.size() == 3 && cmd[0] == "zrem") { return zcmd_remove(&server_data.db, cmd, resp); }
-    else if (cmd.size() == 3 && cmd[0] == "zscore") { return zcmd_score(&server_data.db, cmd, resp); }
-    else if (cmd.size() == 6 && cmd[0] == "zquery") { return zcmd_query(&server_data.db, cmd, resp); }
+    else if (cmd.size() == 4 && cmd[0] == "zadd") { return zcmd_add(cmd, resp); }
+    else if (cmd.size() == 3 && cmd[0] == "zrem") { return zcmd_remove(cmd, resp); }
+    else if (cmd.size() == 3 && cmd[0] == "zscore") { return zcmd_score(cmd, resp); }
+    else if (cmd.size() == 6 && cmd[0] == "zquery") { return zcmd_query(cmd, resp); }
 
     // unknown request
     else {
