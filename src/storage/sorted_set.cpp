@@ -27,7 +27,11 @@ static ZNode *znode_new(const char *name, size_t len, double score) {
     node->hmap.hash_code = string_hash((uint8_t *)name, len);
     node->score = score;       // score of the node
     node->len = len;           // length of the name
-    memcpy(&node->name[0], name, len); // copy the name to the node
+    
+    // copy the name (len bytes) and add a terminating NUL so it's safe as a C string.
+    if (len > 0) { memcpy(&node->name[0], name, len); }
+    node->name[len] = '\0';
+
     return node;
 }
 
