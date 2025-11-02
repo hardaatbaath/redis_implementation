@@ -165,13 +165,15 @@ AVLNode *avl_offset(AVLNode *node, int32_t offset) {
     if (node == NULL) { return NULL; }
 
     while (offset != pos) {
-        if (pos < offset && pos + avl_cnt(node->left) >= offset) {
+        // If target rank lies within the right subtree range: (pos+1) .. (pos + size(right))
+        if (pos < offset && pos + avl_cnt(node->right) >= offset) {
             // the target is inside of the right subtree
             node = node->right;
             if (node == NULL) { return NULL; }
             pos += avl_cnt(node->left) + 1;
         } 
-        else if (pos > offset && pos - avl_cnt(node->right) <= offset) {
+        // If target rank lies within the left subtree range: (pos - size(left)) .. (pos-1)
+        else if (pos > offset && pos - avl_cnt(node->left) <= offset) {
             // the target is inside of the left subtree
             node = node->left;
             if (node == NULL) { return NULL; }
