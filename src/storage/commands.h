@@ -6,10 +6,11 @@
 #include <stdint.h> // uint64_t
 
 // local
-#include "hashtable.h" // HashNode, HashMap, hm_*
+#include "hashtable.h" // HNode, HMap, hm_*
 #include "../net/protocol.h"  // Response
 #include "../core/buffer_io.h" // Buffer
 #include "sorted_set.h" // ZSet, ZNode, zset_*
+#include "../net/netio.h" // Connection
 
 
 // Supported value types in each entry
@@ -21,12 +22,14 @@ enum ValueType : uint8_t {
 
 // Top level hashtable for the server
 static struct  {
-    HashMap db;
+    HMap db;
+    std::vector<Connection *> fd2conn; // a map of all the client connections, keyed by the file descriptor
+    DList idle_conn_list; // list to store the timers for idle connections
 } server_data;
 
 // KV pair storage for the server
 struct Entry {
-    struct HashNode node;    // embedded hashnode node
+    struct HNode node;    // embedded hashnode node
     std::string key;        // key of the entry
     uint32_t type = TYPE_INIT; // type of the value
 

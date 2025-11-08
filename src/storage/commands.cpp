@@ -18,7 +18,7 @@
  * Equality comparitor for 'struct Entry'
  * container_of is used to recover the address of a parent struct from the address of one of its members. 
 */ 
-static bool entry_equals(HashNode *node, HashNode *key) {
+static bool entry_equals(HNode *node, HNode *key) {
     struct Entry *entry = container_of(node, struct Entry, node);
     struct LookupKey *lookup_key = container_of(key, struct LookupKey, node);
     return entry->key == lookup_key->key;
@@ -34,7 +34,7 @@ void set_key(std::vector<std::string> &cmd, Buffer &resp){
     key.node.hash_code = string_hash((uint8_t*) key.key.data(), key.key.size());
 
     // Hashtable Lookup
-    HashNode *node = hm_lookup(&server_data.db, &key.node, &entry_equals);
+    HNode *node = hm_lookup(&server_data.db, &key.node, &entry_equals);
     if(node) {
         // Key already exists, update the value
         container_of(node, Entry, node)->value.swap(cmd[2]);
@@ -58,13 +58,13 @@ void get_key(std::vector<std::string> &cmd, Buffer &resp){
     key.node.hash_code = string_hash((uint8_t *)key.key.data(), key.key.size());
 
     // Hashtable lookup
-    HashNode *node = hm_lookup(&server_data.db, &key.node, &entry_equals);
+    HNode *node = hm_lookup(&server_data.db, &key.node, &entry_equals);
     if (!node){
         return out_nil(resp);
     }
     
     // Copy the values
-    const std:: string &val = container_of(node, Entry, node)->value;      // Returns the value of the HashNode
+    const std:: string &val = container_of(node, Entry, node)->value;      // Returns the value of the HNode
     assert(val.size() <= k_max_msg);
     return out_str(resp, val.data(), val.size());
 }
@@ -76,16 +76,15 @@ void del_key(std::vector<std::string> &cmd, Buffer &resp){
     key.node.hash_code = string_hash((uint8_t*) key.key.data(), key.key.size());
 
     // Hashtable delete
-    HashNode *node = hm_delete(&server_data.db, &key.node, &entry_equals);
-    if (node){
-        // Key found, delete the entry via pointer to the entry
-        delete container_of(node, Entry, node);
-    }
+    HNode *node = hm_delete(&server_data.db, &key.node, &entry_equals);
+    
+    // Key found, delete the entry via pointer to the entry
+    if (node){ entry_del(container_of(node, Entry, node)); }
     return out_int(resp, node ? 1 : 0);
 }
 
 // Callback function for the keys command
-static bool cb_keys(HashNode *node, void *arg) {
+static bool cb_keys(HNode *node, void *arg) {
     Buffer &resp = *(Buffer *)arg;
     const Entry *entry = container_of(node, Entry, node);
     // Emit one array element as a nested array: key : value

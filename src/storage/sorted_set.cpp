@@ -90,7 +90,7 @@ static void zset_update(ZSet *zset, ZNode *node, double score) {
 }
 
 // Compare two hash nodes
-static bool hcmp(HashNode *node, HashNode *key) {
+static bool hcmp(HNode *node, HNode *key) {
     ZNode *znode = container_of(node, ZNode, hmap);
     HashKey *hkey = container_of(key, HashKey, node);
     
@@ -108,7 +108,7 @@ ZNode *zset_lookup(ZSet *zset, const char *name, size_t len) {
     key.name = name;
     key.len = len;
 
-    HashNode *found = hm_lookup(&zset->hmap, &key.node, &hcmp);
+    HNode *found = hm_lookup(&zset->hmap, &key.node, &hcmp);
     return found ? container_of(found, ZNode, hmap) : NULL;
 }
 
@@ -137,7 +137,7 @@ void zset_delete(ZSet *zset, ZNode *node) {
     key.len = node->len;
 
     // Remove from the hash table
-    HashNode *found = hm_delete(&zset->hmap, &key.node, &hcmp);
+    HNode *found = hm_delete(&zset->hmap, &key.node, &hcmp);
     assert(found);
 
     // Remove from the tree
@@ -189,6 +189,11 @@ void zset_clear(ZSet *zset) {
     zset->root = NULL;
 }
 
+/** ------------------------------------------------------------
+ *    Command Handlers
+ * ------------------------------------------------------------
+ */
+
 // Convert string to double
 static bool str2dbl(const std::string &s, double &out) {
     char *endp = NULL;
@@ -204,7 +209,7 @@ static bool str2int(const std::string &s, int64_t &out) {
 }
 
 // Compare two keys
-static bool entry_key_equals(HashNode *node, HashNode *k) {
+static bool entry_key_equals(HNode *node, HNode *k) {
     Entry *entry = container_of(node, Entry, node);
     LookupKey *lkey = container_of(k, LookupKey, node);
     return entry->key == lkey->key;
@@ -218,7 +223,7 @@ static ZSet *expect_zset(std::string &s) {
     key.node.hash_code = string_hash((uint8_t *)key.key.data(), key.key.size());
 
     // Lookup the key in the hash table
-    HashNode *hnode = hm_lookup(&server_data.db, &key.node, &entry_key_equals);
+    HNode *hnode = hm_lookup(&server_data.db, &key.node, &entry_key_equals);
     if (!hnode) { return (ZSet *)&k_empty_zset; } // a non-existent key is treated as an empty zset
     
     // Get the entry from the hash node
@@ -241,7 +246,7 @@ void zcmd_add(std::vector<std::string> &cmd, Buffer &resp) {
     LookupKey key;
     key.key.swap(cmd[1]);
     key.node.hash_code = string_hash((uint8_t *)key.key.data(), key.key.size());
-    HashNode *hnode = hm_lookup(&server_data.db, &key.node, &entry_key_equals);
+    HNode *hnode = hm_lookup(&server_data.db, &key.node, &entry_key_equals);
 
     Entry *ent = NULL;
     if (!hnode) {   // insert a new key

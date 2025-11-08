@@ -19,18 +19,20 @@
 
 // local
 #include "core/sys.h" // msg, msg_error, die, fd_set_nb, append_buffer, consume_buffer
+#include "core/sys_server.h" // next_timer_ms, process_timers
 #include "net/netio.h" // Connection, handle_read, handle_write
+#include "storage/commands.h" // server_data
 
 
 // Handle the client connection
-static Connection *handle_accept(int listen_fd) {
+static int32_t handle_accept(int listen_fd) {
     //accept the connection
     struct sockaddr_in client_addr = {};
     socklen_t addrlen = sizeof(client_addr);
     int conn_fd = accept(listen_fd, (struct sockaddr *)&client_addr, &addrlen);
     if (conn_fd < 0) { 
         msg_error("accept() error");
-        return nullptr;
+        return -1;
     }
     
     // get the client ip address, remember that IP is in little endian
@@ -51,7 +53,15 @@ static Connection *handle_accept(int listen_fd) {
     Connection *conn = new Connection();
     conn->socket_fd = conn_fd;
     conn->want_read = true;
-    return conn;
+    conn->last_activity_ms = get_current_time_ms();
+    dlist_insert_before(&server_data.idle_conn_list, &conn->idle_node);
+
+    // Put the connection into the map and check if inserted correctly
+    if (server_data.fd2conn.size() <= (size_t)conn->socket_fd) { server_data.fd2conn.resize(conn->socket_fd + 1); }
+    assert(!server_data.fd2conn[conn->socket_fd]);
+    server_data.fd2conn[conn->socket_fd] = conn;
+
+    return 0;
 }
 
 /**
@@ -69,6 +79,10 @@ static Connection *handle_accept(int listen_fd) {
  * Return 0 on successful execution.
 */
 int main() {
+
+    // initialize the connection timeout list
+    dlist_init(&server_data.idle_conn_list);
+
     // the listening socket
     int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_fd < 0) { die("socket()"); }
@@ -96,8 +110,8 @@ int main() {
     if (rv) {die("listen()");} 
     msg("[server] listen successful on 0.0.0.0:8080");
 
-    // a map of all the client connections, keyed by the file descriptor
-    std::vector<Connection *> fd2conn;
+    // // a map of all the client connections, keyed by the file descriptor
+    // std::vector<Connection *> fd2conn;
     
     // the event loop
     std::vector<struct pollfd> poll_args;
@@ -110,7 +124,7 @@ int main() {
         poll_args.push_back(pfd);
 
         // the rest are the connection sockets
-        for (Connection *conn : fd2conn) {
+        for (Connection *conn : server_data.fd2conn) {
             if (!conn) { continue; }
 
             // always poll() for errors
@@ -120,8 +134,9 @@ int main() {
             poll_args.push_back(pfd);
         }
 
-        // poll() for events, polling for readiness
-        rv = poll(poll_args.data(), (nfds_t)poll_args.size(), -1);
+        // poll() for events, polling for readiness, -1 means wait forever
+        int32_t timeout_ms = next_timer_ms();
+        rv = poll(poll_args.data(), (nfds_t)poll_args.size(), timeout_ms);
         if (rv < 0) { 
             if (errno == EINTR) { continue; }
             die("poll()"); 
@@ -130,15 +145,16 @@ int main() {
         // handle the listening socket, poll_args[0] is the listening socket
         // revents is the events that happened on the socket
         if (poll_args[0].revents) {
-            if (Connection *conn = handle_accept(listen_fd)) {
-                // put it in the map
-                if (fd2conn.size() <= (size_t) conn->socket_fd) { fd2conn.resize(conn->socket_fd + 1); }
+            // if (Connection *conn = handle_accept(listen_fd)) {
+            //     // put it in the map
+            //     if (fd2conn.size() <= (size_t) conn->socket_fd) { fd2conn.resize(conn->socket_fd + 1); }
                 
-                // put it in the map
-                assert(!fd2conn[conn->socket_fd]);
-                fd2conn[conn->socket_fd] = conn;
-                // here the mapping is the position being same as the file descriptor
-            }
+            //     // put it in the map
+            //     assert(!fd2conn[conn->socket_fd]);
+            //     fd2conn[conn->socket_fd] = conn;
+            //     // here the mapping is the position being same as the file descriptor
+            // }
+            handle_accept(listen_fd);
         }
 
         // handle the client connections sockets
@@ -146,19 +162,21 @@ int main() {
             uint32_t ready = poll_args[i].revents;
             if (ready == 0) { continue; }
 
-            // get the connection
-            Connection *conn = fd2conn[poll_args[i].fd];
+            // get the connection from the server_data map
+            Connection *conn = server_data.fd2conn[poll_args[i].fd];
             
+            // Update the Idle timer and the list
+            conn->last_activity_ms = get_current_time_ms();
+            dlist_detach(&conn->idle_node);
+            dlist_insert_before(&server_data.idle_conn_list, &conn->idle_node);
+            
+            // Handle the read, write, and error events
             if ((ready & POLLIN) && conn->want_read)  { handle_read(conn); }
             if ((ready & POLLOUT) && conn->want_write) { handle_write(conn); }
-
-            if ((ready & POLLERR) || conn->want_close) {
-                (void)close(conn->socket_fd);
-                fd2conn[conn->socket_fd] = NULL;
-                delete conn;
-            }
+            if ((ready & POLLERR) || conn->want_close) { handle_destroy(conn); }
         }
         // for each connection socket
+        process_timers();
     }
     // for event loop
     return 0;

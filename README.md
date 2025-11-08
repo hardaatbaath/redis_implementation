@@ -44,11 +44,13 @@ pong
 > set greeting hello
 > get greeting
 hello
-> all keys
+> keys
+array length: 1
 greeting : hello
+array end
 > del greeting
 > get greeting
-  # status 404 (printed to stderr)
+nil
 > quit
 ```
 
@@ -111,7 +113,7 @@ Limits and safety checks:
 - `set <key> <value>` → stores/updates a string value
 - `get <key>` → prints the value; prints `nil` if missing
 - `del <key>` → deletes the key; prints `1` if deleted, `0` if missing
-- `all keys` → prints all keys as lines `key : value`
+- `keys` → prints an array of strings where each line is `key : value`
 
 Sorted set (`ZSet`):
 - `zadd <zkey> <score:float> <member>` → add/update member; prints `1` if added, `0` if updated
@@ -130,14 +132,52 @@ Sorted set (`ZSet`):
 - `net/protocol.*`: request parsing and response generation (no business logic here).
 - `net/netio.*`: orchestrates parsing, command execution, and response generation per connection.
 - `storage/hashtable.*`: open-addressed chaining table with two tables (`older`, `newer`) for incremental rehashing; controlled by `k_max_load_factor` and `k_rehashing_work`.
-- `storage/commands.*`: command handlers (`get`, `set`, `del`, `all keys`, `ping`) operating against a global `HashMap`.
+- `storage/commands.*`: command handlers (`get`, `set`, `del`, `keys`, `ping`) operating against a global `HMap`.
 
 ### Incremental Rehashing
 When load factor exceeds a threshold, a new table is allocated and keys are gradually migrated from `older` to `newer` over subsequent operations. Reads/writes:
 - Always insert into `newer`.
 - Lookups check `newer` then `older`.
 - Deletions attempt `older` then `newer`.
-- `all keys` enumerates both tables to avoid missing entries mid-migration.
+- `keys` enumerates both tables to avoid missing entries mid-migration.
+
+### Request → Response flow (at a glance)
+- Client builds argv-style payload:
+  - `[num_args:u32][len:u32 arg0][bytes...][len:u32 arg1][bytes...]...`
+- Client frames it:
+  - `[payload_len:u32][payload_bytes...]` and sends on TCP.
+- Server (non-blocking):
+  - `poll(2)` waits for readiness.
+  - `handle_read` appends bytes to per-connection buffer.
+  - When a full frame is present, `parse_request` → `run_request` (KV/ZSet) → typed response is serialized.
+  - `handle_write` flushes the response; partial writes are retried when socket is writable.
+- Response payload is tag-encoded:
+  - `nil`, `err(code,msg)`, `str`, `int`, `dbl`, `arr`, `map`. The client pretty-prints it.
+
+ASCII overview:
+```
+client REPL
+   │
+   ├─ build argv payload ─┐
+   └─ frame and send ─────┴──▶ server socket (non-blocking)
+                               │
+                               ├─ poll → readable
+                               ├─ handle_read → parse frame → parse argv → run_request
+                               ├─ serialize typed response
+                               ├─ poll → writable
+                               └─ handle_write → send bytes ▶ back to client (print)
+```
+
+### Run tests
+Build everything and run all tests (AVL, offset, and command integration):
+```bash
+make test
+```
+Same as:
+```bash
+make test-all
+```
+The command tests start the server, run `tests/test_cmds.py`, then stop the server.
 
 ## Development Notes
 - Code style favors clarity and explicitness. Short helper functions for buffer operations reduce duplication.
@@ -146,4 +186,4 @@ When load factor exceeds a threshold, a new table is allocated and keys are grad
 ## Troubleshooting
 - Address already in use: stop any previous server on port 8080 or change the port in both `src/server.cpp` and `src/client.cpp` then `make rebuild`.
 - Compiler not found: install Xcode Command Line Tools on macOS (`xcode-select --install`) or your distro's build tools on Linux.
-- No output from `get`: ensure you `set` the key first; a missing key returns status `404` (logged to stderr in the client).
+- No output from `get`: ensure you `set` the key first; a missing key prints `nil`.

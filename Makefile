@@ -11,6 +11,7 @@ BIN_DIR := bin
 # Sources and objects
 SERVER_OBJS := $(BUILD_DIR)/server.o \
                $(BUILD_DIR)/sys.o \
+               $(BUILD_DIR)/sys_server.o \
                $(BUILD_DIR)/protocol.o \
                $(BUILD_DIR)/netio.o \
                $(BUILD_DIR)/commands.o \
@@ -49,6 +50,9 @@ $(BUILD_DIR)/client.o: $(SRC_DIR)/client.cpp | dirs
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/sys.o: $(SRC_DIR)/core/sys.cpp | dirs
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/sys_server.o: $(SRC_DIR)/core/sys_server.cpp | dirs
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/protocol.o: $(SRC_DIR)/net/protocol.cpp | dirs
@@ -116,6 +120,10 @@ test-all: all
 	$(MAKE) test-avl
 	$(MAKE) test-offset
 	$(MAKE) test-cmds
+
+# Convenience alias
+.PHONY: test
+test: test-all
 
 run-server: server
 	$(BIN_DIR)/server

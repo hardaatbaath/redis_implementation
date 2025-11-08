@@ -65,7 +65,7 @@ bool handle_one_request(Connection *conn) {
         // Malformed request: respond with an error instead of closing the connection
         size_t header = 0;
         response_begin(conn->outgoing, &header);
-        out_err(conn->outgoing, ERR_UNKNOWN, "malformed request");
+        out_err(conn->outgoing, ERR_BAD_ARG, "malformed request");
         response_end(conn->outgoing, header);
         consume_buffer(conn->incoming, 4 + frame_len);
         return true;
@@ -152,4 +152,12 @@ void handle_read(Connection *conn) {
         // try to write it without waiting for the next iteration.
         return handle_write(conn);
     }
+}
+
+// Close the socket and remove the connection from the map and the idle list
+void handle_destroy(Connection *conn) {
+    (void)close(conn->socket_fd);
+    server_data.fd2conn[conn->socket_fd] = NULL;
+    dlist_detach(&conn->idle_node);
+    delete conn;
 }

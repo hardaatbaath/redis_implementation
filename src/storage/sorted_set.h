@@ -11,13 +11,13 @@
 // Set used for storing the AVL tree and hash table
 struct ZSet {
     AVLNode *root = NULL;   // index by (score, name)
-    HashMap hmap;              // index by name
+    HMap hmap;              // index by name
 };
 
 // Node used for storing the (score, name) tuple
 struct ZNode {
     AVLNode tree;
-    HashNode   hmap;
+    HNode   hmap;
     double  score = 0;
     size_t  len = 0;
     char    name[0];        // flexible array
@@ -25,7 +25,7 @@ struct ZNode {
 
 // Helper structure for the hashtable lookup
 struct HashKey {
-    HashNode node;
+    HNode node;
     const char *name = NULL;
     size_t len = 0;
 };
@@ -40,7 +40,7 @@ ZNode *zset_seek_greater_equal(ZSet *zset, double score, const char *name, size_
 void   zset_clear(ZSet *zset);
 ZNode *znode_offset(ZNode *node, int64_t offset);
 
-// Z-set command handlers (operate on top-level HashMap `db`)
+// Z-set command handlers (operate on top-level HMap `db`)
 void zcmd_add(std::vector<std::string> &cmd, Buffer &resp);
 void zcmd_remove(std::vector<std::string> &cmd, Buffer &resp);
 void zcmd_score(std::vector<std::string> &cmd, Buffer &resp);
