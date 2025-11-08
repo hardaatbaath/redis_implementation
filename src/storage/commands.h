@@ -20,12 +20,15 @@ enum ValueType : uint8_t {
     TYPE_ZSET  = 2,    // sorted set
 };
 
-// Top level hashtable for the server
-static struct  {
+// Top level hashtable for the server, had to be changed from static to a struct to avoid redefinition errors
+struct ServerData {
     HMap db;
     std::vector<Connection *> fd2conn; // a map of all the client connections, keyed by the file descriptor
     DList idle_conn_list; // list to store the timers for idle connections
-} server_data;
+};
+
+// Global instance of the server data
+extern ServerData server_data;
 
 // KV pair storage for the server
 struct Entry {

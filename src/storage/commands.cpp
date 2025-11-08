@@ -14,6 +14,9 @@
 #include "../core/buffer_io.h"  // Buffer
 #include "../core/common.h"     // container_of, string_hash
 
+// Define the single global server state instance
+ServerData server_data;
+
 /**
  * Equality comparitor for 'struct Entry'
  * container_of is used to recover the address of a parent struct from the address of one of its members. 

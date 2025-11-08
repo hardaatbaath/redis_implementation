@@ -17,3 +17,7 @@ const size_t k_rehashing_work = 128;
 
 // Constant for the idle timeout in milliseconds
 const uint64_t k_idle_timeout_ms = 5 * 1000; // 5 seconds
+
+// Read and Write timeouts in milliseconds
+const uint64_t k_read_timeout_ms = 10 * 1000; // 10 seconds
+const uint64_t k_write_timeout_ms = 10 * 1000; // 10 seconds
