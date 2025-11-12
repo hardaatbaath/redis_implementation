@@ -110,9 +110,6 @@ int main() {
     if (rv) {die("listen()");} 
     msg("[server] listen successful on 0.0.0.0:8080");
 
-    // // a map of all the client connections, keyed by the file descriptor
-    // std::vector<Connection *> fd2conn;
-    
     // the event loop
     std::vector<struct pollfd> poll_args;
     while (true) {
@@ -145,15 +142,6 @@ int main() {
         // handle the listening socket, poll_args[0] is the listening socket
         // revents is the events that happened on the socket
         if (poll_args[0].revents) {
-            // if (Connection *conn = handle_accept(listen_fd)) {
-            //     // put it in the map
-            //     if (fd2conn.size() <= (size_t) conn->socket_fd) { fd2conn.resize(conn->socket_fd + 1); }
-                
-            //     // put it in the map
-            //     assert(!fd2conn[conn->socket_fd]);
-            //     fd2conn[conn->socket_fd] = conn;
-            //     // here the mapping is the position being same as the file descriptor
-            // }
             handle_accept(listen_fd);
         }
 

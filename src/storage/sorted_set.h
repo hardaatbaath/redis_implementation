@@ -20,7 +20,7 @@ struct ZNode {
     HNode   hmap;
     double  score = 0;
     size_t  len = 0;
-    char    name[0];        // flexible array
+    char    name[0];        // flexible array, during initialisation, we do malloc(sizeof(ZNode) + len of string)
 };
 
 // Helper structure for the hashtable lookup

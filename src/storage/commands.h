@@ -11,6 +11,18 @@
 #include "../core/buffer_io.h" // Buffer
 #include "sorted_set.h" // ZSet, ZNode, zset_*
 #include "../net/netio.h" // Connection
+#include "heap.h" // HeapItem, heap_update
+
+// Top level hashtable for the server, had to be changed from static to a struct to avoid redefinition errors
+struct ServerData {
+    HMap db;
+    std::vector<Connection *> fd2conn; // a map of all the client connections, keyed by the file descriptor
+    DList idle_conn_list; // list to store the timers for idle connections
+    std::vector<HeapItem> heap; // heap to store the ttl values of the keys
+};
+
+// Global instance of the server data
+extern ServerData server_data;
 
 
 // Supported value types in each entry
@@ -20,20 +32,12 @@ enum ValueType : uint8_t {
     TYPE_ZSET  = 2,    // sorted set
 };
 
-// Top level hashtable for the server, had to be changed from static to a struct to avoid redefinition errors
-struct ServerData {
-    HMap db;
-    std::vector<Connection *> fd2conn; // a map of all the client connections, keyed by the file descriptor
-    DList idle_conn_list; // list to store the timers for idle connections
-};
-
-// Global instance of the server data
-extern ServerData server_data;
-
 // KV pair storage for the server
 struct Entry {
     struct HNode node;    // embedded hashnode node
     std::string key;        // key of the entry
+
+    size_t heap_idx = (size_t)-1; // index of the item in the heap, this is for the ttl
     uint32_t type = TYPE_INIT; // type of the value
 
     // One of the following
@@ -47,10 +51,13 @@ inline static Entry *entry_new(uint32_t type = TYPE_INIT) {
     return entry;
 }
 
+void entry_set_ttl(Entry *entry, uint64_t ttl);
+
 inline static void entry_del(Entry *entry) {
     if (entry->type == TYPE_ZSET) {
         zset_clear(&entry->zset);
     }
+    entry_set_ttl(entry, -1);
     delete entry;
 }
 

@@ -4,6 +4,18 @@
 
 #include "avl_tree.h"
 
+/** In AVL trees, the memory layout is as follows:
+ * 
+ *                                   *                  _____ [ 8 ] ______
+ *                                   *                /                    \
+ *                                   *           _ [ 4 ]               __[ 9 ] _
+ *                                   *         /        \             /         \
+ *                                   *      [ 2 ]      [ 6 ]       [ 7 ]       [ 10 ]
+ *
+ * In Memory, it looks like this:         [ 2 ] [ 4 ] [ 6 ] [ 8 ] [ 7 ] [ 9 ] [ 10 ]
+ * 
+ */
+
 // Helper function to find the maximum of two uint32_t values
 static uint32_t max(uint32_t lhs, uint32_t rhs) {
     return lhs > rhs ? lhs : rhs;
