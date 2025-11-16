@@ -53,7 +53,7 @@ inline static Entry *entry_new(uint32_t type = TYPE_INIT) {
     return entry;
 }
 
-void entry_set_ttl(Entry *entry, uint64_t ttl);
+void entry_set_ttl(Entry *entry, int64_t ttl);
 
 inline static void entry_del(Entry *entry) {
     if (entry->type == TYPE_ZSET) {
