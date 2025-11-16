@@ -30,7 +30,7 @@ static bool entry_equals(HNode *node, HNode *key) {
 }
 
 // Set or remove the TTL on an entry
-void entry_set_ttl(Entry *entry, uint64_t ttl_ms) {
+void entry_set_ttl(Entry *entry, int64_t ttl_ms) {
     if (ttl_ms < 0 && entry->heap_idx != (size_t)-1) {
         // Setting a -1 ttl means that the key is deleted
         heap_delete(server_data.heap, entry->heap_idx);
