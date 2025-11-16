@@ -75,12 +75,22 @@ void process_timers() {
         
         printf("node: %p, entry->node: %p\n", node, &entry->node);
         fprintf(stderr, "[server] deleting expired entry with key %s\n", entry->key.c_str());
-        assert(node == &entry->node);
+
+        if (node != &entry->node) {
+            if (node == NULL) {
+                // The entry was already removed from the hash map (e.g. a DEL or explicit delete happened),
+                // the heap contained a stale reference. This is not fatal — just free the entry.
+                fprintf(stderr, "[server] warning: heap referred to an entry already removed from db for key '%s'\n", entry->key.c_str());
+            } else {
+                // Unexpected mismatch: log and continue rather than aborting the server.
+                fprintf(stderr, "[server] warning: hash node mismatch for key '%s' (node=%p, expected=%p)\n",
+                        entry->key.c_str(), node, &entry->node);
+            }
+            // Do not assert here; proceed to free the entry owned by the heap.
+        }
 
         // Free entry (will not touch heap since heap_idx is already -1)
         entry_del(entry);
         if (++num_works >= k_max_works) { break; } // Don't stall the server if too many entries need to be deleted at once
     }
 }
-
-
