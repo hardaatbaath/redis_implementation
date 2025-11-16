@@ -16,8 +16,11 @@ const size_t k_max_load_factor = 8;
 const size_t k_rehashing_work = 128;
 
 // Constant for the idle timeout in milliseconds
-const uint64_t k_idle_timeout_ms = 5 * 1000; // 5 seconds
+const uint64_t k_idle_timeout_ms = 15 * 1000; // 15 seconds
 
 // Read and Write timeouts in milliseconds
 const uint64_t k_read_timeout_ms = 10 * 1000; // 10 seconds
 const uint64_t k_write_timeout_ms = 10 * 1000; // 10 seconds
+
+// Constant for the maximum work in a single timer loop
+const size_t k_max_works = 2000;

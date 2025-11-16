@@ -18,7 +18,8 @@ SERVER_OBJS := $(BUILD_DIR)/server.o \
                $(BUILD_DIR)/hashtable.o \
                $(BUILD_DIR)/sorted_set.o \
 			   $(BUILD_DIR)/avl_tree.o \
-			   $(BUILD_DIR)/serialize.o
+			   $(BUILD_DIR)/serialize.o \
+			   $(BUILD_DIR)/heap.o
 
 CLIENT_OBJS := $(BUILD_DIR)/client.o \
                $(BUILD_DIR)/sys.o \
@@ -74,6 +75,9 @@ $(BUILD_DIR)/sorted_set.o: $(SRC_DIR)/storage/sorted_set.cpp | dirs
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/avl_tree.o: $(SRC_DIR)/storage/avl_tree.cpp | dirs
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/heap.o: $(SRC_DIR)/storage/heap.cpp | dirs
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 

@@ -13,6 +13,8 @@
 #include "../net/serialize.h"   // out_str, out_nil, out_err, out_int
 #include "../core/buffer_io.h"  // Buffer
 #include "../core/common.h"     // container_of, string_hash
+#include "heap.h"               // heap ops
+#include "../core/sys.h"        // get_current_time_ms
 
 // Define the single global server state instance
 ServerData server_data;
@@ -27,7 +29,20 @@ static bool entry_equals(HNode *node, HNode *key) {
     return entry->key == lookup_key->key;
 }
 
-
+// Set or remove the TTL on an entry
+void entry_set_ttl(Entry *entry, uint64_t ttl_ms) {
+    if (ttl_ms < 0 && entry->heap_idx != (size_t)-1) {
+        // Setting a -1 ttl means that the key is deleted
+        heap_delete(server_data.heap, entry->heap_idx);
+        entry->heap_idx = (size_t) -1;
+    }
+    else if (ttl_ms >= 0) {
+        // Add or update the heap item
+        uint64_t expires_at = get_current_time_ms() + (uint64_t)ttl_ms;
+        HeapItem item = { expires_at, &entry->heap_idx};
+        heap_upsert(server_data.heap, entry->heap_idx, item);
+    }
+}
 
 // Set the value of the key from the hash table
 void set_key(std::vector<std::string> &cmd, Buffer &resp){
@@ -86,6 +101,47 @@ void del_key(std::vector<std::string> &cmd, Buffer &resp){
     return out_int(resp, node ? 1 : 0);
 }
 
+// TTL commands
+// PEXPIRE key ttl, set the ttl of the key
+void set_ttl_ms(std::vector<std::string> &cmd, Buffer &out) {
+    int64_t ttl_ms = 0;
+    if (!str2int(cmd[2], ttl_ms)) { return out_err(out, ERR_BAD_ARG, "expect int"); }
+
+    // Create a new key for hashtable lookup
+    LookupKey key;
+    key.key.swap(cmd[1]);
+    key.node.hash_code = string_hash((uint8_t *)key.key.data(), key.key.size());
+    
+    // Lookup the key in the hash table
+    HNode *node = hm_lookup(&server_data.db, &key.node, &entry_equals);
+    if (node) {
+        Entry *entry = container_of(node, Entry, node);
+        entry_set_ttl(entry, ttl_ms);
+    }
+
+    return out_int(out, node ? 1 : 0);
+}
+
+// PTTL key, get the ttl of the key
+void get_ttl_ms(std::vector<std::string> &cmd, Buffer &out) {
+    // Create a new key for hashtable lookup
+    LookupKey key;
+    key.key.swap(cmd[1]);
+    key.node.hash_code = string_hash((uint8_t *)key.key.data(), key.key.size());
+    
+    // Lookup the key in the hash table
+    HNode *node = hm_lookup(&server_data.db, &key.node, &entry_equals);
+    if (!node) { return out_int(out, -2); }
+
+    // Get the entry from the hash table
+    Entry *entry = container_of(node, Entry, node);
+    if (entry->heap_idx == (size_t)-1) { return out_int(out, -1); }
+
+    uint64_t expires_at = server_data.heap[entry->heap_idx].val;
+    uint64_t now_ms = get_current_time_ms();
+    return out_int(out, expires_at > now_ms ? (expires_at - now_ms) : 0);
+}
+
 // Callback function for the keys command
 static bool cb_keys(HNode *node, void *arg) {
     Buffer &resp = *(Buffer *)arg;
@@ -140,6 +196,12 @@ void run_request(std::vector<std::string> &cmd, Buffer &resp) {
     else if (cmd.size() == 3 && cmd[0] == "zrem") { return zcmd_remove(cmd, resp); }
     else if (cmd.size() == 3 && cmd[0] == "zscore") { return zcmd_score(cmd, resp); }
     else if (cmd.size() == 6 && cmd[0] == "zquery") { return zcmd_query(cmd, resp); }
+
+    // ttl requests
+    // pttl <key> → gets the ttl of the key   e.g. pttl players
+    // pexpire <key> <ttl> → sets the ttl of the key   e.g. pexpire players 1000
+    else if (cmd.size() == 2 && cmd[0] == "pttl") { return get_ttl_ms(cmd, resp); }
+    else if (cmd.size() == 3 && cmd[0] == "pexpire") { return set_ttl_ms(cmd, resp); }
 
     // unknown request
     else {

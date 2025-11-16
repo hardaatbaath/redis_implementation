@@ -128,10 +128,11 @@ void hm_insert(HMap *hmap, HNode *node) {
 HNode *hm_delete(HMap *hmap, HNode *key, bool (*eq)(HNode *, HNode *)) {
     hm_help_rehashing(hmap);
 
-    // First delete from the older table
-    if (HNode **from = h_lookup(&hmap->older, key, eq)) { return h_detach(&hmap->older, from); }
-    // If not found, delete from the newer table
+    // First delete from the newer table
     if (HNode **from = h_lookup(&hmap->newer, key, eq)) { return h_detach(&hmap->newer, from); }
+    // If not found, delete from the older table
+    if (HNode **from = h_lookup(&hmap->older, key, eq)) { return h_detach(&hmap->older, from); }
+    // If not found, return NULL
     return NULL;
 }
 

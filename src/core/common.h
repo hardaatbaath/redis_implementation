@@ -1,7 +1,12 @@
 #pragma once
 
+// C stdlib
 #include <stdint.h>
 #include <stddef.h>
+
+// C++ stdlib
+#include <string>
+#include <math.h>
 
 /**
  * Macro to recover the address of a parent struct from the address of one of its members. 
@@ -23,4 +28,18 @@ inline uint64_t string_hash(const uint8_t *data, size_t len){
         base = (base + data[i]) * prime;
     }
     return base;
+}
+
+// Convert string to double
+inline bool str2dbl(const std::string &s, double &out) {
+    char *endp = NULL;
+    out = strtod(s.c_str(), &endp);
+    return endp == s.c_str() + s.size() && !isnan(out);
+}
+
+// Convert string to integer
+inline bool str2int(const std::string &s, int64_t &out) {
+    char *endp = NULL;
+    out = strtoll(s.c_str(), &endp, 10);
+    return endp == s.c_str() + s.size();
 }

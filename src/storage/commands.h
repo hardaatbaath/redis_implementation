@@ -7,11 +7,13 @@
 
 // local
 #include "hashtable.h" // HNode, HMap, hm_*
-#include "../net/protocol.h"  // Response
 #include "../core/buffer_io.h" // Buffer
 #include "sorted_set.h" // ZSet, ZNode, zset_*
-#include "../net/netio.h" // Connection
-#include "heap.h" // HeapItem, heap_update
+#include "heap.h" // HeapItem, heap_* operations
+#include "list.h" // DList
+
+// Forward declaration to avoid including netio.h here
+struct Connection;
 
 // Top level hashtable for the server, had to be changed from static to a struct to avoid redefinition errors
 struct ServerData {

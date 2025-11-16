@@ -194,20 +194,6 @@ void zset_clear(ZSet *zset) {
  * ------------------------------------------------------------
  */
 
-// Convert string to double
-static bool str2dbl(const std::string &s, double &out) {
-    char *endp = NULL;
-    out = strtod(s.c_str(), &endp);
-    return endp == s.c_str() + s.size() && !isnan(out);
-}
-
-// Convert string to integer
-static bool str2int(const std::string &s, int64_t &out) {
-    char *endp = NULL;
-    out = strtoll(s.c_str(), &endp, 10);
-    return endp == s.c_str() + s.size();
-}
-
 // Compare two keys
 static bool entry_key_equals(HNode *node, HNode *k) {
     Entry *entry = container_of(node, Entry, node);

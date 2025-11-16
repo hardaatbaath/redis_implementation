@@ -3,6 +3,7 @@
 
 // local
 #include "heap.h" // HeapItem, heap_update, heap_upsert
+#include <stddef.h>
 
 
 // This all is an implementation of a min heap
@@ -79,7 +80,7 @@ static void heap_down(HeapItem *heap, size_t pos, size_t len) {
 }
 
 // Update the item in the heap
-void heap_update(HeapItem *item, uint64_t pos, size_t len) {
+void heap_update(HeapItem *item, size_t pos, size_t len) {
     if(pos > 0 && item[parent(pos)].val > item[pos].val) {
         heap_up(item, pos);
     } else {
@@ -98,6 +99,8 @@ void heap_upsert(std::vector<HeapItem> &heap, size_t pos, HeapItem item) {
         heap.push_back(item);
     }
 
+    // Ensure the item records the correct index even if no swaps occur
+    *heap[pos].ref = pos;
     heap_update(heap.data(), pos, heap.size());
 }
 
@@ -108,15 +111,9 @@ void heap_delete(std::vector<HeapItem> &heap, size_t pos) {
     heap.pop_back();
 
     // Update the item
-    if (pos > 0 && pos < heap.size()) {
+    if (pos < heap.size()) {
+        // Fix the back-reference first in case no swaps are needed
+        *heap[pos].ref = pos;
         heap_update(heap.data(), pos, heap.size());
     }
-}
-
-
-/** Commands for the heap */
-
-// PEXPIRE key ttl
-void expire_key(std::vector<std::string> &cmd, Buffer &out) {
-    
 }
