@@ -9,6 +9,7 @@
 #include "sys.h"               // get_current_time_ms
 #include "../storage/commands.h" // server_data, Entry
 #include "../net/netio.h"      // Connection, handle_destroy
+#include "../storage/heap.h"   // heap_delete
 
 static bool hnode_same(HNode *node, HNode *key) {
     return node == key;
@@ -59,12 +60,17 @@ void process_timers() {
 
     // Key TTL timers (min-heap by expiration)
     size_t num_works = 0;
-    const std::vector<HeapItem> &heap = server_data.heap;
+    // const std::vector<HeapItem> &heap = server_data.heap;
+    while (!server_data.heap.empty() && server_data.heap[0].val <= now_ms) {
+        // Take head and proactively remove it so we do not re-observe the same head.
+        Entry *entry = container_of(server_data.heap[0].ref, Entry, heap_idx);
+        heap_delete(server_data.heap, 0);
+        entry->heap_idx = (size_t)-1;
 
     // While the heap is not empty and the earliest expiration is in the past, delete the entry
-    while (!heap.empty() && heap[0].val < now_ms) {
-        printf("heap[0].val: %llu, now_ms: %llu\n", heap[0].val, now_ms);
-        Entry *entry = container_of(heap[0].ref, Entry, heap_idx);
+    // while (!heap.empty() && heap[0].val < now_ms) {
+    //     printf("heap[0].val: %llu, now_ms: %llu\n", heap[0].val, now_ms);
+    //     Entry *entry = container_of(heap[0].ref, Entry, heap_idx);
         HNode *node = hm_delete(&server_data.db, &entry->node, &hnode_same);
         
         printf("node: %p, entry->node: %p\n", node, &entry->node);
