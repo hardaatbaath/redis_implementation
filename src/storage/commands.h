@@ -53,6 +53,7 @@ inline static Entry *entry_new(uint32_t type = TYPE_INIT) {
     return entry;
 }
 
+// the error was that the ttl_ms was unsigned, but it should be signed, as we are using -1 to remove the ttl
 void entry_set_ttl(Entry *entry, int64_t ttl);
 
 inline static void entry_del(Entry *entry) {
