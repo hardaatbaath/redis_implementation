@@ -87,5 +87,6 @@ int main() {
     for (uint32_t i = 0; i < 200; ++i) {
         test_case(i);
     }
+    printf("✅ Heap tests passed.\n");
     return 0;
 }

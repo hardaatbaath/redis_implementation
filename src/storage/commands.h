@@ -11,6 +11,7 @@
 #include "sorted_set.h" // ZSet, ZNode, zset_*
 #include "heap.h" // HeapItem, heap_* operations
 #include "list.h" // DList
+#include "../core/thread_pool.h" // TheadPool
 
 // Forward declaration to avoid including netio.h here
 struct Connection;
@@ -21,6 +22,7 @@ struct ServerData {
     std::vector<Connection *> fd2conn; // a map of all the client connections, keyed by the file descriptor
     DList idle_conn_list; // list to store the timers for idle connections
     std::vector<HeapItem> heap; // heap to store the ttl values of the keys
+    TheadPool thread_pool; // worker pool for heavy destructors
 };
 
 // Global instance of the server data
@@ -56,13 +58,8 @@ inline static Entry *entry_new(uint32_t type = TYPE_INIT) {
 // the error was that the ttl_ms was unsigned, but it should be signed, as we are using -1 to remove the ttl
 void entry_set_ttl(Entry *entry, int64_t ttl);
 
-inline static void entry_del(Entry *entry) {
-    if (entry->type == TYPE_ZSET) {
-        zset_clear(&entry->zset);
-    }
-    entry_set_ttl(entry, -1);
-    delete entry;
-}
+// Heavy delete (may offload to thread pool)
+void entry_del(Entry *entry);
 
 // Request handlers
 void set_key(std::vector<std::string> &cmd, Buffer &resp); // set the value of the key

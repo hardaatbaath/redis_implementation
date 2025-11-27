@@ -75,5 +75,6 @@ int main() {
     for (uint32_t i = 1; i < 500; ++i) {
         test_case(i);
     }
+    printf("✅ AVL offset tests passed.\n");
     return 0;
 }

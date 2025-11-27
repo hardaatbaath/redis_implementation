@@ -211,6 +211,6 @@ int main() {
     }
 
     dispose(c);
-    printf("All tests passed\n");
+    printf("✅ AVL tests passed.\n");
     return 0;
 }

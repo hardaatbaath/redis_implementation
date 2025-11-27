@@ -22,6 +22,7 @@
 #include "core/sys_server.h" // next_timer_ms, process_timers
 #include "net/netio.h" // Connection, handle_read, handle_write
 #include "storage/commands.h" // server_data
+#include "core/thread_pool.h" // thread_pool_init
 
 
 // Handle the client connection
@@ -82,6 +83,8 @@ int main() {
 
     // initialize the connection timeout list
     dlist_init(&server_data.idle_conn_list);
+    // initialize thread pool for heavy deletes
+    thread_pool_init(&server_data.thread_pool, 4);
 
     // the listening socket
     int listen_fd = socket(AF_INET, SOCK_STREAM, 0);

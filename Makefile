@@ -2,6 +2,9 @@
 CXX ?= g++
 CXXFLAGS ?= -std=gnu++17 -Wall -Wextra -Wpedantic -Wno-zero-length-array -O2 -g -MMD -MP -I$(SRC_DIR)
 LDFLAGS ?=
+# Threading
+CXXFLAGS += -pthread
+LDFLAGS  += -pthread
 
 # Directories
 SRC_DIR := src
@@ -19,7 +22,8 @@ SERVER_OBJS := $(BUILD_DIR)/server.o \
                $(BUILD_DIR)/sorted_set.o \
 			   $(BUILD_DIR)/avl_tree.o \
 			   $(BUILD_DIR)/serialize.o \
-			   $(BUILD_DIR)/heap.o
+			   $(BUILD_DIR)/heap.o \
+			   $(BUILD_DIR)/thread_pool.o
 
 CLIENT_OBJS := $(BUILD_DIR)/client.o \
                $(BUILD_DIR)/sys.o \
@@ -29,6 +33,7 @@ CLIENT_OBJS := $(BUILD_DIR)/client.o \
 # Tests
 TEST_OBJS := $(BUILD_DIR)/test_avl.o $(BUILD_DIR)/avl_tree.o
 TEST_OFFSET_OBJS := $(BUILD_DIR)/test_offset.o $(BUILD_DIR)/avl_tree.o
+TEST_HEAP_OBJS := $(BUILD_DIR)/test_heap.o
 
 # Phony alias so `make build` works
 .PHONY: build
@@ -80,6 +85,8 @@ $(BUILD_DIR)/avl_tree.o: $(SRC_DIR)/storage/avl_tree.cpp | dirs
 $(BUILD_DIR)/heap.o: $(SRC_DIR)/storage/heap.cpp | dirs
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/thread_pool.o: $(SRC_DIR)/core/thread_pool.cpp | dirs
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Test build rules
 $(BUILD_DIR)/test_avl.o: tests/test_avl.cpp | dirs
@@ -88,10 +95,16 @@ $(BUILD_DIR)/test_avl.o: tests/test_avl.cpp | dirs
 $(BUILD_DIR)/test_offset.o: tests/test_offset.cpp | dirs
 	$(CXX) $(CXXFLAGS) -I$(SRC_DIR) -c $< -o $@
 
+$(BUILD_DIR)/test_heap.o: tests/test_heap.cpp | dirs
+	$(CXX) $(CXXFLAGS) -I$(SRC_DIR) -c $< -o $@
+
 $(BIN_DIR)/test_avl: $(TEST_OBJS) | dirs
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
 $(BIN_DIR)/test_offset: $(TEST_OFFSET_OBJS) | dirs
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+
+$(BIN_DIR)/test_heap: $(TEST_HEAP_OBJS) | dirs
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
 $(BIN_DIR)/server: $(SERVER_OBJS) | dirs
@@ -105,12 +118,15 @@ $(BIN_DIR)/client: $(CLIENT_OBJS) | dirs
 server: $(BIN_DIR)/server
 client: $(BIN_DIR)/client
 
-.PHONY: test-avl test-offset test-cmds test-all
+.PHONY: test-avl test-offset test-heap test-cmds test-ttl test-all
 test-avl: $(BIN_DIR)/test_avl
 	$(BIN_DIR)/test_avl
 
 test-offset: $(BIN_DIR)/test_offset
 	$(BIN_DIR)/test_offset
+
+test-heap: $(BIN_DIR)/test_heap
+	$(BIN_DIR)/test_heap
 
 test-cmds: $(BIN_DIR)/server $(BIN_DIR)/client
 	cd $(BIN_DIR) && set -e;\
@@ -120,10 +136,20 @@ test-cmds: $(BIN_DIR)/server $(BIN_DIR)/client
 	kill `cat ../$(BUILD_DIR)/server.pid` || true; \
 	rm -f ../$(BUILD_DIR)/server.pid
 
+test-ttl: $(BIN_DIR)/server $(BIN_DIR)/client
+	cd $(BIN_DIR) && set -e;\
+	./server & echo $$! > ../$(BUILD_DIR)/server.pid; \
+	sleep 0.5; \
+	python3 ../tests/test_ttl.py; \
+	kill `cat ../$(BUILD_DIR)/server.pid` || true; \
+	rm -f ../$(BUILD_DIR)/server.pid
+
 test-all: all
 	$(MAKE) test-avl
 	$(MAKE) test-offset
+	$(MAKE) test-heap
 	$(MAKE) test-cmds
+	$(MAKE) test-ttl
 
 # Convenience alias
 .PHONY: test

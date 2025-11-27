@@ -15,6 +15,7 @@
 #include "../core/common.h"     // container_of, string_hash
 #include "heap.h"               // heap ops
 #include "../core/sys.h"        // get_current_time_ms
+#include "../core/thread_pool.h" // thread_pool_queue
 
 // Define the single global server state instance
 ServerData server_data;
@@ -42,6 +43,29 @@ void entry_set_ttl(Entry *entry, int64_t ttl_ms) {
         uint64_t expires_at = get_current_time_ms() + (uint64_t)ttl_ms;
         HeapItem item = { expires_at, &entry->heap_idx};
         heap_upsert(server_data.heap, entry->heap_idx, item);
+    }
+}
+
+// Synchronous deleter (no heap unlink here)
+static void entry_del_sync(Entry *entry) {
+    if (entry->type == TYPE_ZSET) { zset_clear(&entry->zset); }
+    delete entry;
+}
+
+static void entry_del_worker(void *arg) {
+    entry_del_sync((Entry *)arg);
+}
+
+void entry_del(Entry *entry) {
+    // Unlink from TTL heap first to avoid double-touching it in async path
+    entry_set_ttl(entry, -1);
+    // For large zsets, free asynchronously
+    size_t sz = (entry->type == TYPE_ZSET) ? hm_size(&entry->zset.hmap) : 0;
+    const size_t k_large_container_size = 1000;
+    if (sz > k_large_container_size) {
+        thread_pool_queue(&server_data.thread_pool, &entry_del_worker, entry);
+    } else {
+        entry_del_sync(entry);
     }
 }
 
